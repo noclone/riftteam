@@ -14,19 +14,17 @@ log = logging.getLogger("riftteam.profile")
 
 RANK_ICON_BASE = "https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-crests"
 
-AMBITION_LABELS: dict[str, str] = {
-    "CHILL": "Chill",
-    "IMPROVE": "Improve",
-    "COMPETITIVE": "Compétitif",
-    "TRYHARD": "Tryhard",
+ACTIVITY_LABELS: dict[str, str] = {
+    "SCRIMS": "Scrims",
+    "TOURNOIS": "Tournois",
+    "LAN": "LAN",
+    "FLEX": "Flex",
+    "CLASH": "Clash",
 }
 
-LOOKING_FOR_LABELS: dict[str, str] = {
-    "TEAM": "Team 5v5",
-    "DUO": "Duo",
-    "CLASH": "Clash",
-    "SCRIM": "Scrim",
-    "ANY": "Tout",
+AMBIANCE_LABELS: dict[str, str] = {
+    "FUN": "For fun",
+    "TRYHARD": "Tryhard",
 }
 
 
@@ -97,37 +95,15 @@ def build_profile_embed(player: dict) -> discord.Embed:
 
     flex_tier = player.get("rank_flex_tier")
     if flex_tier:
-        flex_str = _rank_str(flex_tier, player.get("rank_flex_division"), None)
-        embed.add_field(name="Rang Flex", value=flex_str, inline=True)
+        flex_str = _rank_str(flex_tier, player.get("rank_flex_division"), player.get("rank_flex_lp"))
+        flex_wr = _winrate(player.get("rank_flex_wins"), player.get("rank_flex_losses"))
+        flex_display = flex_str
+        if flex_wr:
+            flex_display += f" · {flex_wr}"
+        embed.add_field(name="Rang Flex", value=flex_display, inline=True)
 
     role = _role_display(player.get("primary_role"), player.get("secondary_role"))
     embed.add_field(name="Rôle", value=role, inline=True)
-
-    champions = player.get("champions", [])
-    if champions:
-        sorted_champs = sorted(champions, key=lambda c: c.get("games_played", 0), reverse=True)[:3]
-        champ_text = "\n".join(_champion_line(c) for c in sorted_champs)
-        embed.add_field(name="Champions", value=champ_text, inline=False)
-
-    description = player.get("description")
-    if description:
-        truncated = description[:150] + "…" if len(description) > 150 else description
-        embed.add_field(name="Description", value=truncated, inline=False)
-
-    looking_for = player.get("looking_for")
-    ambition = player.get("ambition")
-    info_parts: list[str] = []
-    if looking_for:
-        info_parts.append(f"Cherche : {LOOKING_FOR_LABELS.get(looking_for, looking_for)}")
-    if ambition:
-        info_parts.append(f"Ambition : {AMBITION_LABELS.get(ambition, ambition)}")
-    if info_parts:
-        embed.add_field(name="Recherche", value="\n".join(info_parts), inline=True)
-
-    availability = player.get("availability")
-    if availability:
-        days = ", ".join(availability.keys())
-        embed.add_field(name="Disponibilités", value=days, inline=True)
 
     slug = player["slug"]
     links = (
@@ -137,6 +113,32 @@ def build_profile_embed(player: dict) -> discord.Embed:
         f" · [LoG](https://www.leagueofgraphs.com/summoner/euw/{slug}#championsData-all-queues)"
     )
     embed.add_field(name="Stats externes", value=links, inline=False)
+
+    activities = player.get("activities") or []
+    ambiance_val = player.get("ambiance")
+    freq_min = player.get("frequency_min")
+    freq_max = player.get("frequency_max")
+    info_parts: list[str] = []
+    if activities:
+        labels = [ACTIVITY_LABELS.get(a, a) for a in activities]
+        info_parts.append(", ".join(labels))
+    if ambiance_val:
+        info_parts.append(AMBIANCE_LABELS.get(ambiance_val, ambiance_val))
+    if freq_min is not None and freq_max is not None:
+        info_parts.append(f"{freq_min}-{freq_max}x / semaine")
+    if info_parts:
+        embed.add_field(name="Recherche", value=" · ".join(info_parts), inline=False)
+
+    description = player.get("description")
+    if description:
+        truncated = description[:150] + "…" if len(description) > 150 else description
+        embed.add_field(name="Description", value=truncated, inline=False)
+
+    champions = player.get("champions", [])
+    if champions:
+        sorted_champs = sorted(champions, key=lambda c: c.get("games_played", 0), reverse=True)[:3]
+        champ_text = "\n".join(_champion_line(c) for c in sorted_champs)
+        embed.add_field(name="Champions", value=champ_text, inline=False)
 
     thumb = _rank_thumbnail(tier)
     if thumb:
@@ -181,7 +183,7 @@ class ProfileCog(commands.Cog):
                 if resp.status == 404:
                     await interaction.followup.send(
                         f"Profil **{riot_id}** introuvable. "
-                        f"Crée-le sur {APP_URL} !",
+                        f"Utilise `/register {riot_id}` pour le créer !",
                     )
                     return
                 resp.raise_for_status()

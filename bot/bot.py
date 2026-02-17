@@ -14,11 +14,13 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN", "")
 API_URL = os.getenv("API_URL", "http://localhost:8000")
+BOT_API_SECRET = os.getenv("BOT_API_SECRET", "change-bot-secret-in-production")
+DEV_GUILD_ID = os.getenv("DEV_GUILD_ID", "")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("riftteam")
 
-COGS = ["cogs.profile", "cogs.lft", "cogs.admin"]
+COGS = ["cogs.profile", "cogs.lft", "cogs.admin", "cogs.register", "cogs.edit"]
 
 
 class RiftBot(commands.Bot):
@@ -26,6 +28,7 @@ class RiftBot(commands.Bot):
         intents = discord.Intents.default()
         super().__init__(command_prefix="!", intents=intents)
         self.http_session: aiohttp.ClientSession | None = None
+        self.api_secret: str = BOT_API_SECRET
 
     async def setup_hook(self) -> None:
         self.http_session = aiohttp.ClientSession(base_url=API_URL)
@@ -35,7 +38,12 @@ class RiftBot(commands.Bot):
 
     async def on_ready(self) -> None:
         assert self.user is not None
-        synced = await self.tree.sync()
+        if DEV_GUILD_ID:
+            guild = discord.Object(id=int(DEV_GUILD_ID))
+            self.tree.copy_global_to(guild=guild)
+            synced = await self.tree.sync(guild=guild)
+        else:
+            synced = await self.tree.sync()
         log.info("Logged in as %s — synced %d commands", self.user, len(synced))
 
     async def close(self) -> None:

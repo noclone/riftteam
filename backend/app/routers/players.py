@@ -19,6 +19,7 @@ from app.schemas.player import (
 from app.services.riot_api import fetch_full_profile
 from app.services.snapshots import record_champion_snapshot, record_rank_snapshot, update_peak_rank
 from app.services.sync import _sync_player_rank
+from app.services.token_store import consume_token, validate_token
 from shared.constants import RANK_ORDER
 from shared.riot_client import RiotAPIError, RiotClient
 
@@ -47,15 +48,29 @@ async def _get_player_or_404(slug: str, db: AsyncSession) -> Player:
 
 
 @router.post("/players", response_model=PlayerResponse, status_code=201)
-async def create_player(body: PlayerCreate, request: Request, db: AsyncSession = Depends(get_db)):
-    slug = Player.make_slug(body.game_name, body.tag_line)
+async def create_player(
+    body: PlayerCreate,
+    request: Request,
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    token_data = consume_token(token, "create")
+    if token_data is None:
+        raise HTTPException(403, "Token invalide ou expiré")
+
+    game_name = token_data.game_name
+    tag_line = token_data.tag_line
+    if not game_name or not tag_line:
+        raise HTTPException(400, "Token incomplet (game_name/tag_line manquant)")
+
+    slug = Player.make_slug(game_name, tag_line)
     existing = await db.execute(select(Player).where(Player.slug == slug))
     if existing.scalar_one_or_none():
         raise HTTPException(409, "Profile already exists for this Riot ID")
 
     client = _get_riot_client(request)
     try:
-        riot_data = await fetch_full_profile(body.game_name, body.tag_line, client)
+        riot_data = await fetch_full_profile(game_name, tag_line, client)
     except RiotAPIError as e:
         if e.status == 404:
             raise HTTPException(404, "Riot ID not found")
@@ -76,17 +91,21 @@ async def create_player(body: PlayerCreate, request: Request, db: AsyncSession =
         rank_solo_losses=riot_data["rank_solo_losses"],
         rank_flex_tier=riot_data["rank_flex_tier"],
         rank_flex_division=riot_data["rank_flex_division"],
+        rank_flex_lp=riot_data["rank_flex_lp"],
+        rank_flex_wins=riot_data["rank_flex_wins"],
+        rank_flex_losses=riot_data["rank_flex_losses"],
         peak_solo_tier=riot_data["rank_solo_tier"],
         peak_solo_division=riot_data["rank_solo_division"],
         peak_solo_lp=riot_data["rank_solo_lp"],
         primary_role=riot_data["primary_role"],
         secondary_role=riot_data["secondary_role"],
-        discord_username=body.discord_username,
+        discord_user_id=token_data.discord_user_id,
+        discord_username=token_data.discord_username,
         description=body.description,
-        looking_for=body.looking_for,
-        ambition=body.ambition,
-        languages=body.languages,
-        availability=body.availability,
+        activities=body.activities,
+        ambiance=body.ambiance,
+        frequency_min=body.frequency_min,
+        frequency_max=body.frequency_max,
         is_lft=body.is_lft,
         last_riot_sync=now,
     )
@@ -136,14 +155,30 @@ async def _lazy_rank_refresh(player_id, slug: str, riot_client: RiotClient) -> N
                 pass
 
 
+@router.get("/players/by-discord/{discord_user_id}", response_model=PlayerResponse)
+async def get_player_by_discord(discord_user_id: str, db: AsyncSession = Depends(get_db)):
+    stmt = select(Player).options(selectinload(Player.champions)).where(Player.discord_user_id == discord_user_id)
+    result = await db.execute(stmt)
+    player = result.scalar_one_or_none()
+    if not player:
+        raise HTTPException(404, "Player not found")
+    return player
+
+
 @router.get("/players/{slug}", response_model=PlayerResponse)
 async def get_player(
     slug: str,
     request: Request,
     background_tasks: BackgroundTasks,
+    token: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     player = await _get_player_or_404(slug, db)
+
+    if not player.is_lft:
+        token_data = validate_token(token) if token else None
+        if not token_data or token_data.action != "edit" or token_data.slug != slug:
+            raise HTTPException(404, "Player not found")
 
     if player.last_riot_sync:
         elapsed = datetime.now(timezone.utc) - player.last_riot_sync.replace(tzinfo=timezone.utc)
@@ -192,7 +227,16 @@ async def list_players(
 
 
 @router.patch("/players/{slug}", response_model=PlayerResponse)
-async def update_player(slug: str, body: PlayerUpdate, db: AsyncSession = Depends(get_db)):
+async def update_player(
+    slug: str,
+    body: PlayerUpdate,
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    token_data = validate_token(token)
+    if token_data is None or token_data.action != "edit" or token_data.slug != slug:
+        raise HTTPException(403, "Token invalide ou expiré")
+
     player = await _get_player_or_404(slug, db)
     update_data = body.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -206,7 +250,15 @@ async def update_player(slug: str, body: PlayerUpdate, db: AsyncSession = Depend
 
 
 @router.delete("/players/{slug}", status_code=204)
-async def delete_player(slug: str, db: AsyncSession = Depends(get_db)):
+async def delete_player(
+    slug: str,
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    token_data = validate_token(token)
+    if token_data is None or token_data.action != "edit" or token_data.slug != slug:
+        raise HTTPException(403, "Token invalide ou expiré")
+
     player = await _get_player_or_404(slug, db)
     await db.delete(player)
     await db.commit()
@@ -241,6 +293,9 @@ async def refresh_player(slug: str, request: Request, db: AsyncSession = Depends
     player.rank_solo_losses = riot_data["rank_solo_losses"]
     player.rank_flex_tier = riot_data["rank_flex_tier"]
     player.rank_flex_division = riot_data["rank_flex_division"]
+    player.rank_flex_lp = riot_data["rank_flex_lp"]
+    player.rank_flex_wins = riot_data["rank_flex_wins"]
+    player.rank_flex_losses = riot_data["rank_flex_losses"]
     player.primary_role = riot_data["primary_role"]
     player.secondary_role = riot_data["secondary_role"]
     player.last_riot_sync = now

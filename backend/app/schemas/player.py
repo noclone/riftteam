@@ -20,24 +20,20 @@ class ChampionResponse(BaseModel):
 
 
 class PlayerCreate(BaseModel):
-    game_name: str = Field(max_length=16)
-    tag_line: str = Field(max_length=5)
-    discord_username: str | None = Field(default=None, max_length=50)
     description: str | None = Field(default=None, max_length=500)
-    looking_for: str | None = None
-    ambition: str | None = None
-    languages: list[str] = Field(default=["fr"])
-    availability: dict | None = None
+    activities: list[str] = Field(default=[])
+    ambiance: str | None = None
+    frequency_min: int | None = None
+    frequency_max: int | None = None
     is_lft: bool = True
 
 
 class PlayerUpdate(BaseModel):
-    discord_username: str | None = Field(default=None, max_length=50)
     description: str | None = Field(default=None, max_length=500)
-    looking_for: str | None = None
-    ambition: str | None = None
-    languages: list[str] | None = None
-    availability: dict | None = None
+    activities: list[str] | None = None
+    ambiance: str | None = None
+    frequency_min: int | None = None
+    frequency_max: int | None = None
     is_lft: bool | None = None
 
 
@@ -56,6 +52,9 @@ class PlayerResponse(BaseModel):
     rank_solo_losses: int | None = None
     rank_flex_tier: str | None = None
     rank_flex_division: str | None = None
+    rank_flex_lp: int | None = None
+    rank_flex_wins: int | None = None
+    rank_flex_losses: int | None = None
     peak_solo_tier: str | None = None
     peak_solo_division: str | None = None
     peak_solo_lp: int | None = None
@@ -64,12 +63,13 @@ class PlayerResponse(BaseModel):
     summoner_level: int | None = None
     profile_icon_id: int | None = None
 
+    discord_user_id: str | None = None
     discord_username: str | None = None
     description: str | None = None
-    looking_for: str | None = None
-    ambition: str | None = None
-    languages: list[str] | None = None
-    availability: dict | None = None
+    activities: list[str] | None = None
+    ambiance: str | None = None
+    frequency_min: int | None = None
+    frequency_max: int | None = None
 
     is_lft: bool
     last_riot_sync: datetime | None = None

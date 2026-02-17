@@ -52,6 +52,9 @@ async def _sync_player_rank(player: Player, client: RiotClient) -> None:
     rank_solo_losses = None
     rank_flex_tier = None
     rank_flex_division = None
+    rank_flex_lp = None
+    rank_flex_wins = None
+    rank_flex_losses = None
 
     for entry in entries:
         if entry["queueType"] == "RANKED_SOLO_5x5":
@@ -63,6 +66,9 @@ async def _sync_player_rank(player: Player, client: RiotClient) -> None:
         elif entry["queueType"] == "RANKED_FLEX_SR":
             rank_flex_tier = entry.get("tier")
             rank_flex_division = entry.get("rank")
+            rank_flex_lp = entry.get("leaguePoints")
+            rank_flex_wins = entry.get("wins")
+            rank_flex_losses = entry.get("losses")
 
     async with async_session() as db:
         stmt = select(Player).where(Player.id == player.id)
@@ -78,6 +84,9 @@ async def _sync_player_rank(player: Player, client: RiotClient) -> None:
         p.rank_solo_losses = rank_solo_losses
         p.rank_flex_tier = rank_flex_tier
         p.rank_flex_division = rank_flex_division
+        p.rank_flex_lp = rank_flex_lp
+        p.rank_flex_wins = rank_flex_wins
+        p.rank_flex_losses = rank_flex_losses
         p.summoner_level = summoner.get("summonerLevel", p.summoner_level)
         p.last_riot_sync = datetime.now(timezone.utc)
 
@@ -89,6 +98,9 @@ async def _sync_player_rank(player: Player, client: RiotClient) -> None:
             "rank_solo_losses": rank_solo_losses,
             "rank_flex_tier": rank_flex_tier,
             "rank_flex_division": rank_flex_division,
+            "rank_flex_lp": rank_flex_lp,
+            "rank_flex_wins": rank_flex_wins,
+            "rank_flex_losses": rank_flex_losses,
         }
         await record_rank_snapshot(db, p.id, rank_data)
         update_peak_rank(p, rank_solo_tier, rank_solo_division, rank_solo_lp)

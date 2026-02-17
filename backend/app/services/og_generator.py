@@ -198,20 +198,19 @@ async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
             else:
                 draw.rounded_rectangle([x, y, x + icon_size, y + icon_size], radius=14, fill=(40, 40, 55))
 
-    LOOKING_FOR_LABELS = {
-        "TEAM": "Team",
-        "DUO": "Duo",
+    ACTIVITY_LABELS = {
+        "SCRIMS": "Scrims",
+        "TOURNOIS": "Tournois",
+        "LAN": "LAN",
+        "FLEX": "Flex",
         "CLASH": "Clash",
-        "SCRIM": "Scrims",
-        "ANY": "Tout",
     }
-    looking_for = player.get("looking_for")
-    if looking_for:
-        font_looking = _load_font(48, bold=True)
-        label = LOOKING_FOR_LABELS.get(looking_for, looking_for)
-        looking_text = f"Cherche : {label}"
-        bbox = draw.textbbox((0, 0), looking_text, font=font_looking)
-        draw.text((cx - (bbox[2] - bbox[0]) // 2, CARD_H - 105), looking_text, fill=(255, 255, 255), font=font_looking)
+    activities = player.get("activities") or []
+    if activities:
+        font_activities = _load_font(48, bold=True)
+        label = ", ".join(ACTIVITY_LABELS.get(a, a) for a in activities)
+        bbox = draw.textbbox((0, 0), label, font=font_activities)
+        draw.text((cx - (bbox[2] - bbox[0]) // 2, CARD_H - 105), label, fill=(255, 255, 255), font=font_activities)
 
     draw.text((CARD_W - 200, CARD_H - 48), "riftteam.gg", fill=(70, 70, 90), font=font_brand)
 

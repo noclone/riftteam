@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import players, riot
+from app.routers import players, riot, tokens
 from app.routers.og import router as og_router
 from app.services.sync import sync_active_ranks
 from shared.riot_client import RiotClient
@@ -49,6 +49,7 @@ app.add_middleware(
 
 app.include_router(players.router, prefix="/api")
 app.include_router(riot.router, prefix="/api")
+app.include_router(tokens.router, prefix="/api")
 app.include_router(og_router)
 
 

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -28,6 +28,9 @@ class Player(Base):
     rank_solo_losses: Mapped[int | None] = mapped_column(Integer)
     rank_flex_tier: Mapped[str | None] = mapped_column(String(15))
     rank_flex_division: Mapped[str | None] = mapped_column(String(5))
+    rank_flex_lp: Mapped[int | None] = mapped_column(Integer)
+    rank_flex_wins: Mapped[int | None] = mapped_column(Integer)
+    rank_flex_losses: Mapped[int | None] = mapped_column(Integer)
     peak_solo_tier: Mapped[str | None] = mapped_column(String(15))
     peak_solo_division: Mapped[str | None] = mapped_column(String(5))
     peak_solo_lp: Mapped[int | None] = mapped_column(Integer)
@@ -36,12 +39,13 @@ class Player(Base):
     summoner_level: Mapped[int | None] = mapped_column(Integer)
     profile_icon_id: Mapped[int | None] = mapped_column(Integer)
 
+    discord_user_id: Mapped[str | None] = mapped_column(String(20), unique=True)
     discord_username: Mapped[str | None] = mapped_column(String(50))
     description: Mapped[str | None] = mapped_column(Text)
-    looking_for: Mapped[str | None] = mapped_column(String(20))
-    ambition: Mapped[str | None] = mapped_column(String(20))
-    languages: Mapped[list[str] | None] = mapped_column(ARRAY(String), default=["fr"])
-    availability: Mapped[dict | None] = mapped_column(JSONB)
+    activities: Mapped[list[str] | None] = mapped_column(ARRAY(String), default=[])
+    ambiance: Mapped[str | None] = mapped_column(String(10))
+    frequency_min: Mapped[int | None] = mapped_column(Integer)
+    frequency_max: Mapped[int | None] = mapped_column(Integer)
 
     is_lft: Mapped[bool] = mapped_column(Boolean, default=True)
     last_riot_sync: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

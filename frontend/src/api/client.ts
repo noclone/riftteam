@@ -26,28 +26,45 @@ export const api = {
   checkRiotId(name: string, tag: string) {
     return request<RiotCheckResponse>(`/riot/check/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`)
   },
-  createPlayer(data: PlayerCreateRequest) {
-    return request<PlayerResponse>('/players', { method: 'POST', body: JSON.stringify(data) })
+  createPlayer(data: PlayerCreateRequest, token: string) {
+    return request<PlayerResponse>(`/players?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   },
-  getPlayer(slug: string) {
-    return request<PlayerResponse>(`/players/${encodeURIComponent(slug)}`)
+  getPlayer(slug: string, token?: string) {
+    const qs = token ? `?token=${encodeURIComponent(token)}` : ''
+    return request<PlayerResponse>(`/players/${encodeURIComponent(slug)}${qs}`)
   },
   listPlayers(params?: Record<string, string>) {
     const qs = params ? '?' + new URLSearchParams(params).toString() : ''
     return request<PlayerListResponse>(`/players${qs}`)
   },
-  updatePlayer(slug: string, data: PlayerUpdateRequest) {
-    return request<PlayerResponse>(`/players/${encodeURIComponent(slug)}`, {
+  updatePlayer(slug: string, data: PlayerUpdateRequest, token: string) {
+    return request<PlayerResponse>(`/players/${encodeURIComponent(slug)}?token=${encodeURIComponent(token)}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
   },
-  deletePlayer(slug: string) {
-    return request<void>(`/players/${encodeURIComponent(slug)}`, { method: 'DELETE' })
+  deletePlayer(slug: string, token: string) {
+    return request<void>(`/players/${encodeURIComponent(slug)}?token=${encodeURIComponent(token)}`, {
+      method: 'DELETE',
+    })
   },
   refreshPlayer(slug: string) {
     return request<PlayerResponse>(`/players/${encodeURIComponent(slug)}/refresh`, { method: 'POST' })
   },
+  validateToken(token: string) {
+    return request<TokenInfo>(`/tokens/${encodeURIComponent(token)}/validate`)
+  },
+}
+
+export interface TokenInfo {
+  action: string
+  discord_username: string
+  game_name: string | null
+  tag_line: string | null
+  slug: string | null
 }
 
 export interface RiotCheckResponse {
@@ -85,16 +102,20 @@ export interface PlayerResponse {
   rank_solo_losses: number | null
   rank_flex_tier: string | null
   rank_flex_division: string | null
+  rank_flex_lp: number | null
+  rank_flex_wins: number | null
+  rank_flex_losses: number | null
   primary_role: string | null
   secondary_role: string | null
   summoner_level: number | null
   profile_icon_id: number | null
+  discord_user_id: string | null
   discord_username: string | null
   description: string | null
-  looking_for: string | null
-  ambition: string | null
-  languages: string[] | null
-  availability: Record<string, string[]> | null
+  activities: string[] | null
+  ambiance: string | null
+  frequency_min: number | null
+  frequency_max: number | null
   is_lft: boolean
   last_riot_sync: string | null
   created_at: string
@@ -108,23 +129,19 @@ export interface PlayerListResponse {
 }
 
 export interface PlayerCreateRequest {
-  game_name: string
-  tag_line: string
-  discord_username?: string
   description?: string
-  looking_for?: string
-  ambition?: string
-  languages?: string[]
-  availability?: Record<string, string[]>
+  activities?: string[]
+  ambiance?: string
+  frequency_min?: number
+  frequency_max?: number
   is_lft?: boolean
 }
 
 export interface PlayerUpdateRequest {
-  discord_username?: string
   description?: string
-  looking_for?: string
-  ambition?: string
-  languages?: string[]
-  availability?: Record<string, string[]>
+  activities?: string[]
+  ambiance?: string
+  frequency_min?: number
+  frequency_max?: number
   is_lft?: boolean
 }

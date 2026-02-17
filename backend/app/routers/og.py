@@ -66,10 +66,9 @@ def _build_og_html(player: Player) -> str:
     top_champs = sorted(player.champions, key=lambda c: c.games_played, reverse=True)[:3]
     if top_champs:
         desc_parts.append(", ".join(c.champion_name for c in top_champs))
-    if player.looking_for:
-        labels = {"TEAM": "Cherche team", "DUO": "Cherche duo", "CLASH": "Cherche clash",
-                  "SCRIM": "Cherche scrims", "ANY": "Cherche tout"}
-        desc_parts.append(labels.get(player.looking_for, player.looking_for))
+    if player.activities:
+        activity_labels = {"SCRIMS": "Scrims", "TOURNOIS": "Tournois", "LAN": "LAN", "FLEX": "Flex", "CLASH": "Clash"}
+        desc_parts.append(", ".join(activity_labels.get(a, a) for a in player.activities))
     description = " · ".join(desc_parts) if desc_parts else "Profil joueur LoL"
 
     og_image = f"{settings.api_url}/api/og/{player.slug}.png"
@@ -126,7 +125,7 @@ async def og_image(slug: str, db: AsyncSession = Depends(get_db)):
         "primary_role": player.primary_role,
         "secondary_role": player.secondary_role,
         "profile_icon_id": player.profile_icon_id,
-        "looking_for": player.looking_for,
+        "activities": player.activities,
     }
     champs = [
         {

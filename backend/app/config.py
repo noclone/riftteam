@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     app_url: str = "http://localhost:5173"
     api_url: str = "http://localhost:8000"
     secret_key: str = "change-me-in-production"
+    bot_api_secret: str = "change-bot-secret-in-production"
 
     model_config = {"env_file": "../.env", "extra": "ignore"}
 

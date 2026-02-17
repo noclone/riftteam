@@ -22,11 +22,11 @@ ROLE_NAMES: dict[str, str] = {
 }
 
 ROLE_EMOJIS: dict[str, str] = {
-    "TOP": "\U0001f6e1\ufe0f",
-    "JUNGLE": "\U0001f33f",
-    "MIDDLE": "\U0001f525",
-    "BOTTOM": "\U0001f3f9",
-    "UTILITY": "\U0001f4ab",
+    "TOP": "<:iconpositiontop:1473367385485611170>",
+    "JUNGLE": "<:iconpositionjungle:1473367327578918922>",
+    "MIDDLE": "<:iconpositionmiddle:1473367348567347449>",
+    "BOTTOM": "<:iconpositionbottom:1473367295249092728>",
+    "UTILITY": "<:iconpositionutility:1473367407614754846>",
 }
 
 RANK_COLORS: dict[str, int] = {
@@ -42,9 +42,9 @@ RANK_COLORS: dict[str, int] = {
     "CHALLENGER": 0xF0E68C,
 }
 
-LOOKING_FOR_CHOICES = ["TEAM", "DUO", "CLASH", "SCRIM", "ANY"]
+ACTIVITY_CHOICES = ["SCRIMS", "TOURNOIS", "LAN", "FLEX", "CLASH"]
 
-AMBITION_CHOICES = ["CHILL", "IMPROVE", "COMPETITIVE", "TRYHARD"]
+AMBIANCE_CHOICES = ["FUN", "TRYHARD"]
 
 QUEUE_RANKED_SOLO = 420
 QUEUE_RANKED_FLEX = 440

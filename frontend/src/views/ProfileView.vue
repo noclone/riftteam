@@ -9,7 +9,7 @@ const loading = ref(true)
 const error = ref('')
 const refreshing = ref(false)
 const refreshError = ref('')
-const linkCopied = ref(false)
+
 
 const DDRAGON_VERSION = ref('15.3.1')
 
@@ -30,18 +30,16 @@ const ROLE_ICONS: Record<string, string> = {
   UTILITY: `${ROLE_ICON_BASE}/icon-position-utility.png`,
 }
 
-const LOOKING_FOR_LABELS: Record<string, string> = {
-  TEAM: 'Une équipe',
-  DUO: 'Un duo',
+const ACTIVITY_LABELS: Record<string, string> = {
+  SCRIMS: 'Scrims',
+  TOURNOIS: 'Tournois',
+  LAN: 'LAN',
+  FLEX: 'Flex',
   CLASH: 'Clash',
-  SCRIM: 'Scrims',
-  ANY: 'Tout',
 }
 
-const AMBITION_LABELS: Record<string, string> = {
-  CHILL: 'Chill',
-  IMPROVE: 'Progresser',
-  COMPETITIVE: 'Compétitif',
+const AMBIANCE_LABELS: Record<string, string> = {
+  FUN: 'For fun',
   TRYHARD: 'Tryhard',
 }
 
@@ -56,16 +54,6 @@ const RANK_COLORS: Record<string, string> = {
   MASTER: '#9B30FF',
   GRANDMASTER: '#DC143C',
   CHALLENGER: '#F0E68C',
-}
-
-const DAY_LABELS: Record<string, string> = {
-  monday: 'Lundi',
-  tuesday: 'Mardi',
-  wednesday: 'Mercredi',
-  thursday: 'Jeudi',
-  friday: 'Vendredi',
-  saturday: 'Samedi',
-  sunday: 'Dimanche',
 }
 
 const rankColor = computed(() => {
@@ -137,6 +125,25 @@ function winsLosses(p: PlayerResponse): string {
   return `${w}W ${l}L`
 }
 
+function flexWinRate(p: PlayerResponse): string {
+  const w = p.rank_flex_wins ?? 0
+  const l = p.rank_flex_losses ?? 0
+  if (w + l === 0) return '-'
+  return `${Math.round((w / (w + l)) * 100)}% WR`
+}
+
+function flexLpText(p: PlayerResponse): string {
+  if (p.rank_flex_lp == null) return ''
+  return `${p.rank_flex_lp} LP`
+}
+
+function flexWinsLosses(p: PlayerResponse): string {
+  const w = p.rank_flex_wins ?? 0
+  const l = p.rank_flex_losses ?? 0
+  if (w + l === 0) return ''
+  return `${w}W ${l}L`
+}
+
 async function fetchDDragonVersion() {
   try {
     const res = await fetch('https://ddragon.leagueoflegends.com/api/versions.json')
@@ -160,20 +167,13 @@ async function refreshProfile() {
   }
 }
 
-async function copyLink() {
-  if (!player.value) return
-  const url = `${window.location.origin}/p/${player.value.slug}`
-  await navigator.clipboard.writeText(url)
-  linkCopied.value = true
-  setTimeout(() => { linkCopied.value = false }, 2000)
-}
 
 onMounted(async () => {
   await fetchDDragonVersion()
   try {
     player.value = await api.getPlayer(route.params.slug as string)
   } catch (e: any) {
-    error.value = e.status === 404 ? 'Profil introuvable.' : e.message
+    error.value = e.status === 404 ? 'Profil introuvable ou actuellement pas LFT.' : e.message
   } finally {
     loading.value = false
   }
@@ -190,7 +190,7 @@ onMounted(async () => {
         :style="{ borderTop: `4px solid ${rankColor}` }"
       >
         <!-- Header -->
-        <div class="p-6 sm:p-8">
+        <div class="p-6 pb-2 sm:p-8 sm:pb-2">
           <div class="flex items-start gap-4 sm:gap-6">
             <img
               v-if="profileIconUrl(player)"
@@ -235,6 +235,11 @@ onMounted(async () => {
                   class="w-10 h-10"
                 />
                 <span class="text-lg font-bold" :style="{ color: flexRankColor }">{{ formatRankFlex(player) }}</span>
+                <span v-if="flexLpText(player)" class="text-sm text-gray-400">{{ flexLpText(player) }}</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm text-gray-400 mt-1">
+                <span>{{ flexWinRate(player) }}</span>
+                <span v-if="flexWinsLosses(player)">{{ flexWinsLosses(player) }}</span>
               </div>
             </div>
           </div>
@@ -252,7 +257,7 @@ onMounted(async () => {
           </div>
 
           <!-- External links -->
-          <div class="flex flex-wrap gap-2 mt-4">
+          <div class="flex flex-wrap gap-2 mt-4 mb-2">
             <a
               :href="`https://op.gg/lol/summoners/euw/${player.slug}`"
               target="_blank"
@@ -292,6 +297,33 @@ onMounted(async () => {
           </div>
         </div>
 
+        <!-- LFT Info -->
+        <div class="px-6 sm:px-8 pb-6 space-y-5">
+          <div v-if="player.activities?.length || player.ambiance || (player.frequency_min != null && player.frequency_max != null)" class="flex flex-wrap gap-2.5">
+            <span
+              v-for="act in (player.activities ?? [])"
+              :key="act"
+              class="bg-cyan-600/20 text-cyan-300 text-base font-medium px-4 py-2 rounded-full"
+            >
+              {{ ACTIVITY_LABELS[act] ?? act }}
+            </span>
+            <span v-if="player.ambiance" :class="[
+              'text-base font-medium px-4 py-2 rounded-full',
+              player.ambiance === 'TRYHARD' ? 'bg-purple-600/20 text-purple-300' : 'bg-green-600/20 text-green-300',
+            ]">
+              {{ AMBIANCE_LABELS[player.ambiance] ?? player.ambiance }}
+            </span>
+            <span v-if="player.frequency_min != null && player.frequency_max != null" class="bg-gray-700/50 text-gray-300 text-base font-medium px-4 py-2 rounded-full">
+              {{ player.frequency_min }}-{{ player.frequency_max }}x / semaine
+            </span>
+          </div>
+
+          <div v-if="player.description" class="bg-gray-700/50 rounded-lg p-4">
+            <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Description</p>
+            <p class="text-gray-200 whitespace-pre-line leading-relaxed">{{ player.description }}</p>
+          </div>
+        </div>
+
         <!-- Champions -->
         <div v-if="player.champions.length" class="px-6 sm:px-8 pb-2">
           <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Champions</h2>
@@ -326,46 +358,6 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Info sections -->
-        <div class="px-6 sm:px-8 py-4 space-y-4">
-          <div v-if="player.looking_for || player.ambition" class="flex flex-wrap gap-2">
-            <span v-if="player.looking_for" class="bg-indigo-600/20 text-indigo-300 text-sm px-3 py-1 rounded-full">
-              {{ LOOKING_FOR_LABELS[player.looking_for] ?? player.looking_for }}
-            </span>
-            <span v-if="player.ambition" class="bg-purple-600/20 text-purple-300 text-sm px-3 py-1 rounded-full">
-              {{ AMBITION_LABELS[player.ambition] ?? player.ambition }}
-            </span>
-            <span v-if="player.languages?.length" class="bg-gray-700 text-gray-300 text-sm px-3 py-1 rounded-full">
-              {{ player.languages.join(', ').toUpperCase() }}
-            </span>
-          </div>
-
-          <div v-if="player.description">
-            <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">Description</h2>
-            <p class="text-gray-300 whitespace-pre-line">{{ player.description }}</p>
-          </div>
-
-          <!-- Availability -->
-          <div v-if="player.availability && Object.keys(player.availability).length">
-            <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">Disponibilités</h2>
-            <div class="space-y-1">
-              <div
-                v-for="(slots, day) in player.availability"
-                :key="day"
-                class="flex items-center gap-2 text-sm"
-              >
-                <span class="text-gray-400 w-24">{{ DAY_LABELS[day] ?? day }}</span>
-                <span class="text-gray-300">{{ (slots as string[]).join(', ') }}</span>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="player.discord_username" class="flex items-center gap-2 text-gray-400">
-            <span>Discord:</span>
-            <span class="text-white font-medium">{{ player.discord_username }}</span>
-          </div>
-        </div>
-
         <!-- Actions -->
         <div class="px-6 sm:px-8 pb-6 flex flex-wrap gap-3">
           <button
@@ -374,12 +366,6 @@ onMounted(async () => {
             class="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-sm px-4 py-2 rounded-lg transition"
           >
             {{ refreshing ? 'Actualisation...' : 'Rafraîchir les données Riot' }}
-          </button>
-          <button
-            @click="copyLink"
-            class="bg-indigo-600 hover:bg-indigo-500 text-sm px-4 py-2 rounded-lg transition"
-          >
-            {{ linkCopied ? 'Copié !' : 'Copier le lien' }}
           </button>
         </div>
         <p v-if="refreshError" class="px-6 sm:px-8 pb-4 text-red-400 text-sm">{{ refreshError }}</p>
