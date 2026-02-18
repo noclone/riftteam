@@ -30,6 +30,21 @@ FORMAT_CHOICES = [
 ]
 
 
+def _parse_date_parts(date_str: str) -> tuple[int, int, int]:
+    date_parts = re.split(r"[/\-.]", date_str)
+    if len(date_parts) == 2:
+        day, month = int(date_parts[0]), int(date_parts[1])
+        year = datetime.now(PARIS_TZ).year
+    elif len(date_parts) == 3:
+        day, month = int(date_parts[0]), int(date_parts[1])
+        year = int(date_parts[2])
+        if year < 100:
+            year += 2000
+    else:
+        raise ValueError(f"Format de date invalide : `{date_str}`. Utilise `JJ/MM` ou `JJ/MM/AAAA`.")
+    return day, month, year
+
+
 def _parse_datetime(date_str: str, time_str: str) -> datetime:
     date_str = date_str.strip()
     time_str = time_str.strip()
@@ -42,17 +57,8 @@ def _parse_datetime(date_str: str, time_str: str) -> datetime:
     if not (0 <= hour <= 23 and 0 <= minute <= 59):
         raise ValueError(f"Heure invalide : `{time_str}`.")
 
-    date_parts = re.split(r"[/\-.]", date_str)
-    if len(date_parts) == 2:
-        day, month = int(date_parts[0]), int(date_parts[1])
-        year = datetime.now(PARIS_TZ).year
-    elif len(date_parts) == 3:
-        day, month = int(date_parts[0]), int(date_parts[1])
-        year = int(date_parts[2])
-        if year < 100:
-            year += 2000
-    else:
-        raise ValueError(f"Format de date invalide : `{date_str}`. Utilise `JJ/MM` ou `JJ/MM/AAAA`.")
+    day, month, year = _parse_date_parts(date_str)
+    has_year = len(re.split(r"[/\-.]", date_str)) == 3
 
     try:
         dt = datetime(year, month, day, hour, minute, tzinfo=PARIS_TZ)
@@ -60,7 +66,7 @@ def _parse_datetime(date_str: str, time_str: str) -> datetime:
         raise ValueError(f"Date invalide : `{date_str}` `{time_str}`.")
 
     now = datetime.now(PARIS_TZ)
-    if dt < now and len(date_parts) == 2:
+    if dt < now and not has_year:
         dt = dt.replace(year=year + 1)
 
     return dt
@@ -127,17 +133,7 @@ def _build_scrim_embed(scrim: dict) -> discord.Embed:
 
 def _parse_date(date_str: str) -> str:
     date_str = date_str.strip()
-    date_parts = re.split(r"[/\-.]", date_str)
-    if len(date_parts) == 2:
-        day, month = int(date_parts[0]), int(date_parts[1])
-        year = datetime.now(PARIS_TZ).year
-    elif len(date_parts) == 3:
-        day, month = int(date_parts[0]), int(date_parts[1])
-        year = int(date_parts[2])
-        if year < 100:
-            year += 2000
-    else:
-        raise ValueError(f"Format de date invalide : `{date_str}`. Utilise `JJ/MM` ou `JJ/MM/AAAA`.")
+    day, month, year = _parse_date_parts(date_str)
     from datetime import date as date_type
     try:
         d = date_type(year, month, day)
@@ -518,7 +514,10 @@ class ScrimCog(commands.Cog):
             return
 
         parts = custom_id[len("rt_scrim_page:"):].split(":", 1)
-        page = int(parts[0])
+        try:
+            page = int(parts[0])
+        except (ValueError, IndexError):
+            return
         min_rank, max_rank, scheduled_date, fmt, hour_min, hour_max = _decode_filters(parts[1]) if len(parts) > 1 else (None, None, None, None, None, None)
 
         await interaction.response.defer(ephemeral=True)

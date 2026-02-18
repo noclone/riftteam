@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from utils import format_api_error, get_api_secret, get_session
+from utils import create_link_view, format_api_error, get_api_secret, get_session
 
 log = logging.getLogger("riftteam.edit")
 
@@ -55,12 +55,7 @@ class EditCog(commands.Cog):
             return
 
         riot_id = f"{player['riot_game_name']}#{player['riot_tag_line']}"
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(
-            label="Modifier mon profil",
-            style=discord.ButtonStyle.link,
-            url=url,
-        ))
+        view = create_link_view("Modifier mon profil", url)
         await interaction.followup.send(
             f"Clique ci-dessous pour modifier ton profil **{riot_id}** !\n"
             f"Le lien expire dans 30 minutes.",

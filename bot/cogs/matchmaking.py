@@ -6,9 +6,9 @@ from discord.ext import commands
 
 from cogs.profile import build_profile_embed
 from config import APP_URL, RANK_ICON_BASE
-from shared.constants import ACTIVITY_LABELS, AMBIANCE_LABELS, RANK_COLORS, RANK_ORDER, ROLE_EMOJIS, ROLE_NAMES
+from shared.constants import RANK_COLORS, RANK_ORDER, ROLE_EMOJIS, ROLE_NAMES
 from shared.format import format_rank, format_rank_range
-from utils import format_api_error, get_session, parse_riot_id
+from utils import build_info_parts, format_api_error, get_session, parse_riot_id
 
 log = logging.getLogger("riftteam.matchmaking")
 
@@ -94,18 +94,7 @@ def build_team_embed(team: dict) -> discord.Embed:
             roster_lines.append(f"{role_emoji} **{p['riot_game_name']}**#{p['riot_tag_line']} — {rank}")
         embed.add_field(name=f"Roster ({len(members)}/5)", value="\n".join(roster_lines), inline=False)
 
-    activities = team.get("activities") or []
-    ambiance_val = team.get("ambiance")
-    freq_min = team.get("frequency_min")
-    freq_max = team.get("frequency_max")
-    info_parts: list[str] = []
-    if activities:
-        labels = [ACTIVITY_LABELS.get(a, a) for a in activities]
-        info_parts.append(", ".join(labels))
-    if ambiance_val:
-        info_parts.append(AMBIANCE_LABELS.get(ambiance_val, ambiance_val))
-    if freq_min is not None and freq_max is not None:
-        info_parts.append(f"{freq_min}-{freq_max}x / semaine")
+    info_parts = build_info_parts(team)
     if info_parts:
         embed.add_field(name="Info", value=" · ".join(info_parts), inline=False)
 

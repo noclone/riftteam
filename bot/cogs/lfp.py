@@ -6,9 +6,9 @@ from discord.ext import commands
 
 from config import APP_URL
 from constants import RANK_CHOICES, ROLE_CHOICES
-from shared.constants import ACTIVITY_LABELS, AMBIANCE_LABELS, ROLE_EMOJIS, ROLE_NAMES
+from shared.constants import ROLE_EMOJIS, ROLE_NAMES
 from shared.format import format_rank
-from utils import decode_list_filters, encode_list_filters, format_api_error, get_session
+from utils import build_info_parts, build_nav_view, build_no_results_msg, decode_list_filters, encode_list_filters, format_api_error, get_session
 
 log = logging.getLogger("riftteam.lfp")
 
@@ -35,17 +35,7 @@ def _build_embed(players: list[dict], total: int, page: int, role: str | None) -
 
         lines = [f"{rank} · {role_emoji} {role_name}"]
 
-        info_parts: list[str] = []
-        activities = p.get("activities") or []
-        if activities:
-            info_parts.append(", ".join(ACTIVITY_LABELS.get(a, a) for a in activities))
-        ambiance_val = p.get("ambiance")
-        if ambiance_val:
-            info_parts.append(AMBIANCE_LABELS.get(ambiance_val, ambiance_val))
-        freq_min = p.get("frequency_min")
-        freq_max = p.get("frequency_max")
-        if freq_min is not None and freq_max is not None:
-            info_parts.append(f"{freq_min}-{freq_max}x / semaine")
+        info_parts = build_info_parts(p)
         if info_parts:
             lines.append(" · ".join(info_parts))
 
@@ -55,25 +45,6 @@ def _build_embed(players: list[dict], total: int, page: int, role: str | None) -
 
     embed.set_footer(text=f"Page {page + 1}/{total_pages} · {total} joueurs LFT au total")
     return embed
-
-
-def _build_nav_view(page: int, total: int, role: str | None, min_rank: str | None, max_rank: str | None) -> discord.ui.View:
-    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
-    view = discord.ui.View(timeout=None)
-    filters = encode_list_filters(role, min_rank, max_rank)
-    view.add_item(discord.ui.Button(
-        label="◀ Précédent",
-        style=discord.ButtonStyle.secondary,
-        custom_id=f"rt_lfp_page:{page - 1}:{filters}",
-        disabled=page <= 0,
-    ))
-    view.add_item(discord.ui.Button(
-        label="Suivant ▶",
-        style=discord.ButtonStyle.secondary,
-        custom_id=f"rt_lfp_page:{page + 1}:{filters}",
-        disabled=page >= total_pages - 1,
-    ))
-    return view
 
 
 class LfpCog(commands.Cog):
@@ -120,17 +91,7 @@ class LfpCog(commands.Cog):
         total = data.get("total", len(players))
 
         if not players:
-            msg = "Aucun joueur LFT trouvé"
-            filters = []
-            if role:
-                filters.append(f"rôle **{ROLE_NAMES.get(role, role)}**")
-            if min_rank:
-                filters.append(f"rang min **{min_rank.capitalize()}**")
-            if max_rank:
-                filters.append(f"rang max **{max_rank.capitalize()}**")
-            if filters:
-                msg += " pour " + ", ".join(filters)
-            msg += "."
+            msg = build_no_results_msg("joueur LFT", role, min_rank, max_rank)
             if edit:
                 await interaction.edit_original_response(content=msg, embed=None, view=None)
             else:
@@ -138,7 +99,8 @@ class LfpCog(commands.Cog):
             return
 
         embed = _build_embed(players, total, page, role)
-        view = _build_nav_view(page, total, role, min_rank, max_rank)
+        filters_encoded = encode_list_filters(role, min_rank, max_rank)
+        view = build_nav_view("rt_lfp_page", page, total, PAGE_SIZE, filters_encoded)
 
         if edit:
             await interaction.edit_original_response(embed=embed, view=view)
@@ -177,7 +139,10 @@ class LfpCog(commands.Cog):
             return
 
         parts = custom_id[len("rt_lfp_page:"):].split(":", 1)
-        page = int(parts[0])
+        try:
+            page = int(parts[0])
+        except (ValueError, IndexError):
+            return
         role, min_rank, max_rank = decode_list_filters(parts[1]) if len(parts) > 1 else (None, None, None)
 
         await interaction.response.defer(ephemeral=True)

@@ -2,16 +2,15 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-
-logger = logging.getLogger("riftteam.players")
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import async_session, get_db
 from app.dependencies import get_riot_client, verify_bot_secret
 from app.models.player import Player
-from app.services.player_helpers import apply_riot_data, populate_champions
+from app.services.player_helpers import apply_riot_data, create_player_from_riot_data, populate_champions, refresh_champions
 from app.routers.og import invalidate_og_cache
 from app.schemas.player import (
     PlayerCreate,
@@ -25,6 +24,8 @@ from app.services.snapshots import record_champion_snapshot, record_rank_snapsho
 from app.services.sync import _sync_player_rank
 from app.services.token_store import consume_token, validate_token
 from shared.riot_client import RiotAPIError, RiotClient
+
+logger = logging.getLogger("riftteam.players")
 
 router = APIRouter(tags=["players"])
 
@@ -98,34 +99,10 @@ async def create_player(
 
         update_peak_rank(player, riot_data["rank_solo_tier"], riot_data["rank_solo_division"], riot_data["rank_solo_lp"])
 
-        for champ in player.champions:
-            await db.delete(champ)
-        await db.flush()
-
-        populate_champions(player, riot_data["champions"])
+        await refresh_champions(db, player, riot_data["champions"])
     else:
-        player = Player(
-            riot_puuid=riot_data["puuid"],
-            riot_game_name=riot_data["game_name"],
-            riot_tag_line=riot_data["tag_line"],
-            slug=slug,
-            summoner_level=riot_data["summoner_level"],
-            profile_icon_id=riot_data["profile_icon_id"],
-            rank_solo_tier=riot_data["rank_solo_tier"],
-            rank_solo_division=riot_data["rank_solo_division"],
-            rank_solo_lp=riot_data["rank_solo_lp"],
-            rank_solo_wins=riot_data["rank_solo_wins"],
-            rank_solo_losses=riot_data["rank_solo_losses"],
-            rank_flex_tier=riot_data["rank_flex_tier"],
-            rank_flex_division=riot_data["rank_flex_division"],
-            rank_flex_lp=riot_data["rank_flex_lp"],
-            rank_flex_wins=riot_data["rank_flex_wins"],
-            rank_flex_losses=riot_data["rank_flex_losses"],
-            peak_solo_tier=riot_data["rank_solo_tier"],
-            peak_solo_division=riot_data["rank_solo_division"],
-            peak_solo_lp=riot_data["rank_solo_lp"],
-            primary_role=riot_data["primary_role"],
-            secondary_role=riot_data["secondary_role"],
+        player = create_player_from_riot_data(
+            riot_data, slug,
             discord_user_id=token_data.discord_user_id,
             discord_username=token_data.discord_username,
             description=body.description,
@@ -149,7 +126,11 @@ async def create_player(
         riot_data["primary_role"], riot_data["secondary_role"], recorded_at=now,
     )
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, "Profile already exists for this Riot ID")
     await db.refresh(player)
     stmt = select(Player).options(selectinload(Player.champions)).where(Player.id == player.id)
     result = await db.execute(stmt)
@@ -157,16 +138,22 @@ async def create_player(
     return player
 
 
+_refreshing_players: set = set()
+
+
 async def _lazy_rank_refresh(player_id, slug: str, riot_client: RiotClient) -> None:
-    async with async_session() as db:
-        stmt = select(Player).where(Player.id == player_id)
-        result = await db.execute(stmt)
-        player = result.scalar_one_or_none()
-        if player:
-            try:
-                await _sync_player_rank(player, riot_client)
-            except Exception:
-                logger.exception("Lazy rank refresh failed for %s", slug)
+    try:
+        async with async_session() as db:
+            stmt = select(Player).where(Player.id == player_id)
+            result = await db.execute(stmt)
+            player = result.scalar_one_or_none()
+            if player:
+                try:
+                    await _sync_player_rank(player, riot_client)
+                except Exception:
+                    logger.exception("Lazy rank refresh failed for %s", slug)
+    finally:
+        _refreshing_players.discard(player_id)
 
 
 @router.get("/players/by-discord/{discord_user_id}", response_model=PlayerResponse)
@@ -192,13 +179,12 @@ async def get_player(
 ):
     player = await _get_player_or_404(slug, db)
 
-    if player.last_riot_sync:
+    if player.last_riot_sync and player.id not in _refreshing_players:
         elapsed = datetime.now(timezone.utc) - _ensure_utc(player.last_riot_sync)
         if elapsed > LAZY_REFRESH_THRESHOLD:
-            player.last_riot_sync = datetime.now(timezone.utc)
-            await db.commit()
             client = getattr(request.app.state, "riot_client", None)
             if client:
+                _refreshing_players.add(player.id)
                 background_tasks.add_task(_lazy_rank_refresh, player.id, player.slug, client)
 
     return player
@@ -301,11 +287,7 @@ async def refresh_player(
 
     update_peak_rank(player, riot_data["rank_solo_tier"], riot_data["rank_solo_division"], riot_data["rank_solo_lp"])
 
-    for champ in player.champions:
-        await db.delete(champ)
-    await db.flush()
-
-    populate_champions(player, riot_data["champions"])
+    await refresh_champions(db, player, riot_data["champions"])
 
     await record_rank_snapshot(db, player.id, riot_data, recorded_at=now)
     await record_champion_snapshot(

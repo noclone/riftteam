@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from utils import format_api_error, get_api_secret, get_session, parse_riot_id
+from utils import create_link_view, format_api_error, get_api_secret, get_session, parse_riot_id
 
 log = logging.getLogger("riftteam.register")
 
@@ -97,12 +97,7 @@ class RegisterCog(commands.Cog):
             await interaction.followup.send(format_api_error(exc))
             return
 
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(
-            label="Créer mon profil",
-            style=discord.ButtonStyle.link,
-            url=url,
-        ))
+        view = create_link_view("Créer mon profil", url)
         await interaction.followup.send(
             f"Clique ci-dessous pour créer ton profil **{riot_id}** !\n"
             f"Le lien expire dans 30 minutes.",

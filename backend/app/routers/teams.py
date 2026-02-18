@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_riot_client, verify_bot_secret
-from app.services.player_helpers import populate_champions
+from app.services.player_helpers import create_player_from_riot_data, populate_champions
 from app.models.player import Player
 from app.models.team import Team, TeamMember
 from app.schemas.team import (
@@ -225,28 +225,9 @@ async def add_member(
             raise HTTPException(502, f"Riot API error: {e.message}")
 
         now = datetime.now(timezone.utc)
-        player = Player(
-            riot_puuid=riot_data["puuid"],
-            riot_game_name=riot_data["game_name"],
-            riot_tag_line=riot_data["tag_line"],
-            slug=Player.make_slug(riot_data["game_name"], riot_data["tag_line"]),
-            summoner_level=riot_data["summoner_level"],
-            profile_icon_id=riot_data["profile_icon_id"],
-            rank_solo_tier=riot_data["rank_solo_tier"],
-            rank_solo_division=riot_data["rank_solo_division"],
-            rank_solo_lp=riot_data["rank_solo_lp"],
-            rank_solo_wins=riot_data["rank_solo_wins"],
-            rank_solo_losses=riot_data["rank_solo_losses"],
-            rank_flex_tier=riot_data["rank_flex_tier"],
-            rank_flex_division=riot_data["rank_flex_division"],
-            rank_flex_lp=riot_data["rank_flex_lp"],
-            rank_flex_wins=riot_data["rank_flex_wins"],
-            rank_flex_losses=riot_data["rank_flex_losses"],
-            peak_solo_tier=riot_data["rank_solo_tier"],
-            peak_solo_division=riot_data["rank_solo_division"],
-            peak_solo_lp=riot_data["rank_solo_lp"],
-            primary_role=riot_data["primary_role"],
-            secondary_role=riot_data["secondary_role"],
+        player = create_player_from_riot_data(
+            riot_data,
+            Player.make_slug(riot_data["game_name"], riot_data["tag_line"]),
             discord_user_id=None,
             discord_username=None,
             is_lft=False,

@@ -42,8 +42,6 @@ RANK_COLORS: dict[str, int] = {
     "CHALLENGER": 0xF0E68C,
 }
 
-ACTIVITY_CHOICES = ["SCRIMS", "TOURNOIS", "LAN", "FLEX", "CLASH"]
-
 ACTIVITY_LABELS: dict[str, str] = {
     "SCRIMS": "Scrims",
     "TOURNOIS": "Tournois",
@@ -51,8 +49,6 @@ ACTIVITY_LABELS: dict[str, str] = {
     "FLEX": "Flex",
     "CLASH": "Clash",
 }
-
-AMBIANCE_CHOICES = ["FUN", "TRYHARD"]
 
 AMBIANCE_LABELS: dict[str, str] = {
     "FUN": "For fun",

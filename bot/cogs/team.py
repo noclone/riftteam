@@ -6,9 +6,9 @@ from discord.ext import commands
 
 from config import APP_URL
 from constants import RANK_CHOICES, ROLE_CHOICES
-from shared.constants import ACTIVITY_LABELS, AMBIANCE_LABELS, RANK_COLORS, ROLE_EMOJIS, ROLE_NAMES
+from shared.constants import RANK_COLORS, ROLE_EMOJIS, ROLE_NAMES
 from shared.format import format_rank
-from utils import decode_list_filters, encode_list_filters, format_api_error, get_api_secret, get_session, parse_riot_id
+from utils import build_info_parts, build_nav_view, build_no_results_msg, create_link_view, decode_list_filters, encode_list_filters, format_api_error, get_api_secret, get_session, parse_riot_id
 
 log = logging.getLogger("riftteam.team")
 
@@ -61,12 +61,7 @@ class TeamCog(commands.Cog):
             await interaction.followup.send(format_api_error(exc))
             return
 
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(
-            label="Créer mon équipe",
-            style=discord.ButtonStyle.link,
-            url=url,
-        ))
+        view = create_link_view("Créer mon équipe", url)
         await interaction.followup.send(
             f"Clique ci-dessous pour créer ton équipe **{name}** !\n"
             f"Le lien expire dans 30 minutes.",
@@ -114,12 +109,7 @@ class TeamCog(commands.Cog):
             await interaction.followup.send(format_api_error(exc))
             return
 
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(
-            label="Modifier mon équipe",
-            style=discord.ButtonStyle.link,
-            url=url,
-        ))
+        view = create_link_view("Modifier mon équipe", url)
         await interaction.followup.send(
             f"Clique ci-dessous pour modifier ton équipe **{team['name']}** !\n"
             f"Le lien expire dans 30 minutes.",
@@ -290,17 +280,7 @@ class TeamCog(commands.Cog):
         total = data.get("total", len(teams))
 
         if not teams:
-            msg = "Aucune équipe LFP trouvée"
-            filters = []
-            if role:
-                filters.append(f"rôle **{ROLE_NAMES.get(role, role)}**")
-            if min_rank:
-                filters.append(f"rang min **{min_rank.capitalize()}**")
-            if max_rank:
-                filters.append(f"rang max **{max_rank.capitalize()}**")
-            if filters:
-                msg += " pour " + ", ".join(filters)
-            msg += "."
+            msg = build_no_results_msg("équipe LFP", role, min_rank, max_rank)
             if edit:
                 await interaction.edit_original_response(content=msg, embed=None, view=None)
             else:
@@ -338,17 +318,7 @@ class TeamCog(commands.Cog):
                 lines.append(f"Elo : {rank_range}")
             lines.append(f"Roster : {member_count}/5")
 
-            info_parts: list[str] = []
-            activities = t.get("activities") or []
-            if activities:
-                info_parts.append(", ".join(ACTIVITY_LABELS.get(a, a) for a in activities))
-            ambiance_val = t.get("ambiance")
-            if ambiance_val:
-                info_parts.append(AMBIANCE_LABELS.get(ambiance_val, ambiance_val))
-            freq_min = t.get("frequency_min")
-            freq_max = t.get("frequency_max")
-            if freq_min is not None and freq_max is not None:
-                info_parts.append(f"{freq_min}-{freq_max}x / semaine")
+            info_parts = build_info_parts(t)
             if info_parts:
                 lines.append(" · ".join(info_parts))
 
@@ -359,19 +329,7 @@ class TeamCog(commands.Cog):
         embed.set_footer(text=f"Page {page + 1}/{total_pages} · {total} équipes LFP au total")
 
         filters_encoded = encode_list_filters(role, min_rank, max_rank)
-        view = discord.ui.View(timeout=None)
-        view.add_item(discord.ui.Button(
-            label="◀ Précédent",
-            style=discord.ButtonStyle.secondary,
-            custom_id=f"rt_lft_page:{page - 1}:{filters_encoded}",
-            disabled=page <= 0,
-        ))
-        view.add_item(discord.ui.Button(
-            label="Suivant ▶",
-            style=discord.ButtonStyle.secondary,
-            custom_id=f"rt_lft_page:{page + 1}:{filters_encoded}",
-            disabled=page >= total_pages - 1,
-        ))
+        view = build_nav_view("rt_lft_page", page, total, PAGE_SIZE, filters_encoded)
 
         if edit:
             await interaction.edit_original_response(embed=embed, view=view)
@@ -410,7 +368,10 @@ class TeamCog(commands.Cog):
             return
 
         parts = custom_id[len("rt_lft_page:"):].split(":", 1)
-        page = int(parts[0])
+        try:
+            page = int(parts[0])
+        except (ValueError, IndexError):
+            return
         role, min_rank, max_rank = decode_list_filters(parts[1]) if len(parts) > 1 else (None, None, None)
 
         await interaction.response.defer(ephemeral=True)

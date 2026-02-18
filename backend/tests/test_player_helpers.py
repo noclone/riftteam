@@ -1,6 +1,8 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
-from app.services.player_helpers import apply_riot_data, populate_champions
+import pytest
+
+from app.services.player_helpers import apply_riot_data, create_player_from_riot_data, populate_champions, refresh_champions
 
 
 def _make_riot_data(**overrides):
@@ -106,4 +108,78 @@ class TestPopulateChampions:
     def test_empty_list(self):
         player = _make_player()
         populate_champions(player, [])
+        assert len(player.champions) == 0
+
+
+class TestCreatePlayerFromRiotData:
+    def test_creates_player_with_riot_fields(self):
+        riot_data = _make_riot_data()
+        player = create_player_from_riot_data(riot_data, "TestPlayer-EUW")
+        assert player.riot_puuid == "abc123"
+        assert player.slug == "TestPlayer-EUW"
+        assert player.rank_solo_tier == "GOLD"
+        assert player.peak_solo_tier == "GOLD"
+        assert player.peak_solo_division == "II"
+        assert player.peak_solo_lp == 50
+        assert player.primary_role == "JUNGLE"
+
+    def test_passes_extra_fields(self):
+        riot_data = _make_riot_data()
+        player = create_player_from_riot_data(
+            riot_data, "TestPlayer-EUW",
+            discord_user_id="12345",
+            is_lft=True,
+        )
+        assert player.discord_user_id == "12345"
+        assert player.is_lft is True
+
+    def test_unranked_player(self):
+        riot_data = _make_riot_data(
+            rank_solo_tier=None, rank_solo_division=None, rank_solo_lp=None,
+        )
+        player = create_player_from_riot_data(riot_data, "TestPlayer-EUW")
+        assert player.rank_solo_tier is None
+        assert player.peak_solo_tier is None
+
+
+class TestRefreshChampions:
+    @pytest.mark.asyncio
+    async def test_deletes_old_and_adds_new(self):
+        db = AsyncMock()
+        db.delete = AsyncMock()
+        db.flush = AsyncMock()
+
+        old_champ = MagicMock()
+        player = _make_player()
+        player.champions = [old_champ]
+
+        new_champs = [
+            {
+                "champion_id": 64,
+                "champion_name": "Lee Sin",
+                "mastery_level": 7,
+                "mastery_points": 150000,
+                "games_played": 20,
+                "wins": 12,
+                "losses": 8,
+                "avg_kills": 7.5,
+                "avg_deaths": 4.2,
+                "avg_assists": 8.1,
+            },
+        ]
+        await refresh_champions(db, player, new_champs)
+        db.delete.assert_awaited_once_with(old_champ)
+        db.flush.assert_awaited_once()
+        assert len(player.champions) == 2  # old mock still in list + new one appended
+
+    @pytest.mark.asyncio
+    async def test_empty_existing_champions(self):
+        db = AsyncMock()
+        db.flush = AsyncMock()
+
+        player = _make_player()
+        player.champions = []
+
+        await refresh_champions(db, player, [])
+        db.flush.assert_awaited_once()
         assert len(player.champions) == 0

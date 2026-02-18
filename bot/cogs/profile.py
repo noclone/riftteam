@@ -6,9 +6,9 @@ from discord import app_commands
 from discord.ext import commands
 
 from config import APP_URL, RANK_ICON_BASE
-from shared.constants import ACTIVITY_LABELS, AMBIANCE_LABELS, RANK_COLORS, ROLE_EMOJIS, ROLE_NAMES
+from shared.constants import RANK_COLORS, ROLE_EMOJIS, ROLE_NAMES
 from shared.format import format_rank, format_win_rate
-from utils import format_api_error, get_session, parse_riot_id
+from utils import build_info_parts, format_api_error, get_session, parse_riot_id
 
 log = logging.getLogger("riftteam.profile")
 
@@ -78,18 +78,7 @@ def build_profile_embed(player: dict) -> discord.Embed:
     )
     embed.add_field(name="Stats externes", value=links, inline=False)
 
-    activities = player.get("activities") or []
-    ambiance_val = player.get("ambiance")
-    freq_min = player.get("frequency_min")
-    freq_max = player.get("frequency_max")
-    info_parts: list[str] = []
-    if activities:
-        labels = [ACTIVITY_LABELS.get(a, a) for a in activities]
-        info_parts.append(", ".join(labels))
-    if ambiance_val:
-        info_parts.append(AMBIANCE_LABELS.get(ambiance_val, ambiance_val))
-    if freq_min is not None and freq_max is not None:
-        info_parts.append(f"{freq_min}-{freq_max}x / semaine")
+    info_parts = build_info_parts(player)
     if info_parts:
         embed.add_field(name="Recherche", value=" · ".join(info_parts), inline=False)
 
