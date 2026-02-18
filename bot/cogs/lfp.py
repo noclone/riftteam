@@ -1,57 +1,18 @@
 import logging
-import os
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-from shared.constants import RANK_ORDER, ROLE_EMOJIS, ROLE_NAMES
+from config import APP_URL
+from constants import RANK_CHOICES, ROLE_CHOICES
+from shared.constants import ACTIVITY_LABELS, AMBIANCE_LABELS, ROLE_EMOJIS, ROLE_NAMES
 from shared.format import format_rank
-from utils import format_api_error
-
-ACTIVITY_LABELS: dict[str, str] = {
-    "SCRIMS": "Scrims",
-    "TOURNOIS": "Tournois",
-    "LAN": "LAN",
-    "FLEX": "Flex",
-    "CLASH": "Clash",
-}
-
-AMBIANCE_LABELS: dict[str, str] = {
-    "FUN": "For fun",
-    "TRYHARD": "Tryhard",
-}
-
-APP_URL = os.getenv("APP_URL", "http://localhost:5173")
+from utils import decode_list_filters, encode_list_filters, format_api_error, get_session
 
 log = logging.getLogger("riftteam.lfp")
 
 PAGE_SIZE = 5
-
-ROLE_CHOICES = [
-    app_commands.Choice(name="Top", value="TOP"),
-    app_commands.Choice(name="Jungle", value="JUNGLE"),
-    app_commands.Choice(name="Mid", value="MIDDLE"),
-    app_commands.Choice(name="ADC", value="BOTTOM"),
-    app_commands.Choice(name="Support", value="UTILITY"),
-]
-
-RANK_CHOICES = [
-    app_commands.Choice(name=k.capitalize(), value=k)
-    for k in RANK_ORDER
-]
-
-
-def _encode_filters(role: str | None, min_rank: str | None, max_rank: str | None) -> str:
-    return f"{role or ''}:{min_rank or ''}:{max_rank or ''}"
-
-
-def _decode_filters(encoded: str) -> tuple[str | None, str | None, str | None]:
-    parts = encoded.split(":")
-    role = parts[0] or None if len(parts) > 0 else None
-    min_rank = parts[1] or None if len(parts) > 1 else None
-    max_rank = parts[2] or None if len(parts) > 2 else None
-    return role, min_rank, max_rank
 
 
 def _build_embed(players: list[dict], total: int, page: int, role: str | None) -> discord.Embed:
@@ -99,7 +60,7 @@ def _build_embed(players: list[dict], total: int, page: int, role: str | None) -
 def _build_nav_view(page: int, total: int, role: str | None, min_rank: str | None, max_rank: str | None) -> discord.ui.View:
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
     view = discord.ui.View(timeout=None)
-    filters = _encode_filters(role, min_rank, max_rank)
+    filters = encode_list_filters(role, min_rank, max_rank)
     view.add_item(discord.ui.Button(
         label="◀ Précédent",
         style=discord.ButtonStyle.secondary,
@@ -141,7 +102,7 @@ class LfpCog(commands.Cog):
         if max_rank:
             params["max_rank"] = max_rank
 
-        session = self.bot.http_session  # type: ignore[attr-defined]
+        session = get_session(self.bot)
         try:
             async with session.get("/api/players", params=params) as resp:
                 resp.raise_for_status()
@@ -217,7 +178,7 @@ class LfpCog(commands.Cog):
 
         parts = custom_id[len("rt_lfp_page:"):].split(":", 1)
         page = int(parts[0])
-        role, min_rank, max_rank = _decode_filters(parts[1]) if len(parts) > 1 else (None, None, None)
+        role, min_rank, max_rank = decode_list_filters(parts[1]) if len(parts) > 1 else (None, None, None)
 
         await interaction.response.defer(ephemeral=True)
         await self._fetch_and_respond(interaction, page, role, min_rank, max_rank, edit=True)

@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.config import settings
 from app.database import get_db
+from app.dependencies import get_riot_client, verify_bot_secret
+from app.services.player_helpers import populate_champions
 from app.models.player import Player
 from app.models.team import Team, TeamMember
 from app.schemas.team import (
@@ -16,23 +17,14 @@ from app.schemas.team import (
     TeamResponse,
     TeamUpdate,
 )
+from app.services.query_helpers import apply_rank_filters
 from app.services.riot_api import fetch_full_profile
 from app.services.token_store import consume_token, validate_token
-from shared.constants import RANK_ORDER
-from shared.riot_client import RiotAPIError, RiotClient
+from shared.riot_client import RiotAPIError
 
 router = APIRouter(tags=["teams"])
 
 VALID_ROLES = {"TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"}
-
-
-def _get_riot_client(request: Request) -> RiotClient:
-    client = getattr(request.app.state, "riot_client", None)
-    if client:
-        return client
-    if not settings.riot_api_key:
-        raise HTTPException(503, "Riot API key not configured")
-    return RiotClient(settings.riot_api_key)
 
 
 async def _get_team_or_404(slug: str, db: AsyncSession) -> Team:
@@ -96,11 +88,9 @@ async def create_team(
 @router.get("/teams/by-captain/{discord_user_id}", response_model=TeamResponse)
 async def get_team_by_captain(
     discord_user_id: str,
-    x_bot_secret: str = Header(...),
+    _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
-    if x_bot_secret != settings.bot_api_secret:
-        raise HTTPException(403, "Invalid bot secret")
     stmt = (
         select(Team)
         .options(selectinload(Team.members).selectinload(TeamMember.player))
@@ -148,16 +138,8 @@ async def list_teams(
     if role:
         stmt = stmt.where(Team.wanted_roles.any(role.upper()))
         count_stmt = count_stmt.where(Team.wanted_roles.any(role.upper()))
-    if min_rank and min_rank.upper() in RANK_ORDER:
-        min_val = RANK_ORDER[min_rank.upper()]
-        valid_tiers = [t for t, v in RANK_ORDER.items() if v >= min_val]
-        stmt = stmt.where(Team.min_rank.in_(valid_tiers) | Team.min_rank.is_(None))
-        count_stmt = count_stmt.where(Team.min_rank.in_(valid_tiers) | Team.min_rank.is_(None))
-    if max_rank and max_rank.upper() in RANK_ORDER:
-        max_val = RANK_ORDER[max_rank.upper()]
-        valid_tiers = [t for t, v in RANK_ORDER.items() if v <= max_val]
-        stmt = stmt.where(Team.max_rank.in_(valid_tiers) | Team.max_rank.is_(None))
-        count_stmt = count_stmt.where(Team.max_rank.in_(valid_tiers) | Team.max_rank.is_(None))
+    stmt, count_stmt = apply_rank_filters(stmt, count_stmt, min_rank, None, Team.min_rank, allow_null=True)
+    stmt, count_stmt = apply_rank_filters(stmt, count_stmt, None, max_rank, Team.max_rank, allow_null=True)
 
     total_result = await db.execute(count_stmt)
     total = total_result.scalar_one()
@@ -212,11 +194,9 @@ async def add_member(
     slug: str,
     body: RosterAddRequest,
     request: Request,
-    x_bot_secret: str = Header(...),
+    _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
-    if x_bot_secret != settings.bot_api_secret:
-        raise HTTPException(403, "Invalid bot secret")
 
     team = await _get_team_or_404(slug, db)
 
@@ -236,15 +216,13 @@ async def add_member(
             raise HTTPException(400, "Format de slug invalide (attendu: Pseudo-TAG)")
 
         game_name, tag_line = name_parts
-        client = _get_riot_client(request)
+        client = get_riot_client(request)
         try:
             riot_data = await fetch_full_profile(game_name, tag_line, client)
         except RiotAPIError as e:
             if e.status == 404:
                 raise HTTPException(404, "Riot ID introuvable")
             raise HTTPException(502, f"Riot API error: {e.message}")
-
-        from app.models.champion import PlayerChampion
 
         now = datetime.now(timezone.utc)
         player = Player(
@@ -275,21 +253,7 @@ async def add_member(
             last_riot_sync=now,
         )
 
-        for champ in riot_data["champions"]:
-            player.champions.append(
-                PlayerChampion(
-                    champion_id=champ["champion_id"],
-                    champion_name=champ["champion_name"],
-                    mastery_level=champ["mastery_level"],
-                    mastery_points=champ["mastery_points"],
-                    games_played=champ["games_played"],
-                    wins=champ["wins"],
-                    losses=champ["losses"],
-                    avg_kills=champ["avg_kills"],
-                    avg_deaths=champ["avg_deaths"],
-                    avg_assists=champ["avg_assists"],
-                )
-            )
+        populate_champions(player, riot_data["champions"])
 
         db.add(player)
         await db.flush()
@@ -314,12 +278,10 @@ async def add_member(
 async def remove_member(
     slug: str,
     player_slug: str,
-    x_bot_secret: str = Header(...),
+    _: str = Depends(verify_bot_secret),
     discord_user_id: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    if x_bot_secret != settings.bot_api_secret:
-        raise HTTPException(403, "Invalid bot secret")
 
     team = await _get_team_or_404(slug, db)
 
@@ -346,12 +308,10 @@ async def remove_member(
 @router.post("/teams/{slug}/reactivate", status_code=200)
 async def reactivate_team(
     slug: str,
-    x_bot_secret: str = Header(...),
+    _: str = Depends(verify_bot_secret),
     discord_user_id: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    if x_bot_secret != settings.bot_api_secret:
-        raise HTTPException(403, "Invalid bot secret")
 
     team = await _get_team_or_404(slug, db)
 

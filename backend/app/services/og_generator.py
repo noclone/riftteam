@@ -5,7 +5,7 @@ from pathlib import Path
 import aiohttp
 from PIL import Image, ImageDraw, ImageFont
 
-from shared.constants import RANK_COLORS
+from shared.constants import ACTIVITY_LABELS, RANK_COLORS
 from shared.format import format_rank, format_win_rate
 
 ROLE_LABELS_FULL: dict[str, str] = {
@@ -184,13 +184,6 @@ async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
             else:
                 draw.rounded_rectangle([x, y, x + icon_size, y + icon_size], radius=14, fill=(40, 40, 55))
 
-    ACTIVITY_LABELS = {
-        "SCRIMS": "Scrims",
-        "TOURNOIS": "Tournois",
-        "LAN": "LAN",
-        "FLEX": "Flex",
-        "CLASH": "Clash",
-    }
     activities = player.get("activities") or []
     if activities:
         font_activities = _load_font(48, bold=True)
@@ -283,13 +276,6 @@ async def generate_team_og_image(team: dict) -> bytes:
         else:
             draw.rounded_rectangle([bx, box_y, bx + box_w, box_y + box_h], radius=10, fill=(30, 30, 40))
 
-    ACTIVITY_LABELS = {
-        "SCRIMS": "Scrims",
-        "TOURNOIS": "Tournois",
-        "LAN": "LAN",
-        "FLEX": "Flex",
-        "CLASH": "Clash",
-    }
     activities = team.get("activities") or []
     if activities:
         font_activities = _load_font(48, bold=True)

@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from utils import format_api_error
+from utils import format_api_error, get_api_secret, get_session, parse_riot_id
 
 log = logging.getLogger("riftteam.register")
 
@@ -16,8 +16,8 @@ class RegisterCog(commands.Cog):
     @app_commands.command(name="rt-profil-create", description="Crée ton profil RiftTeam à partir de ton Riot ID")
     @app_commands.describe(riot_id="Ton Riot ID (ex: Pseudo#TAG)")
     async def rt_register(self, interaction: discord.Interaction, riot_id: str) -> None:
-        parts = riot_id.split("#", 1)
-        if len(parts) != 2 or not parts[0] or not parts[1]:
+        parsed = parse_riot_id(riot_id)
+        if not parsed:
             await interaction.response.send_message(
                 "Format invalide. Utilise `Pseudo#TAG` (ex: `noclone67#EUW`).",
                 ephemeral=True,
@@ -26,10 +26,10 @@ class RegisterCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        name, tag = parts
+        name, tag = parsed
         slug = f"{name}-{tag}"
-        session = self.bot.http_session  # type: ignore[attr-defined]
-        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+        session = get_session(self.bot)
+        api_secret = get_api_secret(self.bot)
 
         try:
             async with session.get(f"/api/players/by-discord/{interaction.user.id}") as resp:

@@ -1,17 +1,17 @@
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.config import settings
 from app.database import get_db
+from app.dependencies import verify_bot_secret
+from app.services.query_helpers import apply_rank_filters
 from app.models.scrim import Scrim
 from app.models.team import Team, TeamMember
 from app.schemas.scrim import ScrimCreate, ScrimListResponse, ScrimResponse
-from shared.constants import RANK_ORDER
 
 router = APIRouter(tags=["scrims"])
 
@@ -32,11 +32,9 @@ async def _get_scrim_or_404(scrim_id: str, db: AsyncSession) -> Scrim:
 @router.post("/scrims", response_model=ScrimResponse, status_code=201)
 async def create_scrim(
     body: ScrimCreate,
-    x_bot_secret: str = Header(...),
+    _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
-    if x_bot_secret != settings.bot_api_secret:
-        raise HTTPException(403, "Invalid bot secret")
 
     stmt = (
         select(Team)
@@ -137,17 +135,8 @@ async def list_scrims(
             stmt = stmt.where(Scrim.format == format.upper())
             count_stmt = count_stmt.where(Scrim.format == format.upper())
 
-    if min_rank and min_rank.upper() in RANK_ORDER:
-        min_val = RANK_ORDER[min_rank.upper()]
-        valid_tiers = [t for t, v in RANK_ORDER.items() if v >= min_val]
-        stmt = stmt.where(Scrim.max_rank.in_(valid_tiers) | Scrim.max_rank.is_(None))
-        count_stmt = count_stmt.where(Scrim.max_rank.in_(valid_tiers) | Scrim.max_rank.is_(None))
-
-    if max_rank and max_rank.upper() in RANK_ORDER:
-        max_val = RANK_ORDER[max_rank.upper()]
-        valid_tiers = [t for t, v in RANK_ORDER.items() if v <= max_val]
-        stmt = stmt.where(Scrim.min_rank.in_(valid_tiers) | Scrim.min_rank.is_(None))
-        count_stmt = count_stmt.where(Scrim.min_rank.in_(valid_tiers) | Scrim.min_rank.is_(None))
+    stmt, count_stmt = apply_rank_filters(stmt, count_stmt, min_rank, None, Scrim.max_rank, allow_null=True)
+    stmt, count_stmt = apply_rank_filters(stmt, count_stmt, None, max_rank, Scrim.min_rank, allow_null=True)
 
     total_result = await db.execute(count_stmt)
     total = total_result.scalar_one()
@@ -162,11 +151,9 @@ async def list_scrims(
 @router.delete("/scrims/by-team/{team_slug}", status_code=200)
 async def cancel_team_scrims(
     team_slug: str,
-    x_bot_secret: str = Header(...),
+    _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
-    if x_bot_secret != settings.bot_api_secret:
-        raise HTTPException(403, "Invalid bot secret")
 
     stmt = select(Team).where(Team.slug == team_slug)
     result = await db.execute(stmt)
@@ -190,11 +177,9 @@ async def cancel_team_scrims(
 @router.delete("/scrims/{scrim_id}", status_code=204)
 async def cancel_scrim(
     scrim_id: str,
-    x_bot_secret: str = Header(...),
+    _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
-    if x_bot_secret != settings.bot_api_secret:
-        raise HTTPException(403, "Invalid bot secret")
 
     scrim = await _get_scrim_or_404(scrim_id, db)
     scrim.is_active = False

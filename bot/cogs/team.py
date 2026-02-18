@@ -1,57 +1,18 @@
 import logging
-import os
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-from shared.constants import RANK_COLORS, RANK_ORDER, ROLE_EMOJIS, ROLE_NAMES
+from config import APP_URL
+from constants import RANK_CHOICES, ROLE_CHOICES
+from shared.constants import ACTIVITY_LABELS, AMBIANCE_LABELS, RANK_COLORS, ROLE_EMOJIS, ROLE_NAMES
 from shared.format import format_rank
-from utils import format_api_error
-
-APP_URL = os.getenv("APP_URL", "http://localhost:5173")
+from utils import decode_list_filters, encode_list_filters, format_api_error, get_api_secret, get_session, parse_riot_id
 
 log = logging.getLogger("riftteam.team")
 
 PAGE_SIZE = 5
-
-ACTIVITY_LABELS: dict[str, str] = {
-    "SCRIMS": "Scrims",
-    "TOURNOIS": "Tournois",
-    "LAN": "LAN",
-    "FLEX": "Flex",
-    "CLASH": "Clash",
-}
-
-AMBIANCE_LABELS: dict[str, str] = {
-    "FUN": "For fun",
-    "TRYHARD": "Tryhard",
-}
-
-
-def _encode_filters(role: str | None, min_rank: str | None, max_rank: str | None) -> str:
-    return f"{role or ''}:{min_rank or ''}:{max_rank or ''}"
-
-
-def _decode_filters(encoded: str) -> tuple[str | None, str | None, str | None]:
-    parts = encoded.split(":")
-    role = parts[0] or None if len(parts) > 0 else None
-    min_rank = parts[1] or None if len(parts) > 1 else None
-    max_rank = parts[2] or None if len(parts) > 2 else None
-    return role, min_rank, max_rank
-
-ROLE_CHOICES = [
-    app_commands.Choice(name="Top", value="TOP"),
-    app_commands.Choice(name="Jungle", value="JUNGLE"),
-    app_commands.Choice(name="Mid", value="MIDDLE"),
-    app_commands.Choice(name="ADC", value="BOTTOM"),
-    app_commands.Choice(name="Support", value="UTILITY"),
-]
-
-RANK_CHOICES = [
-    app_commands.Choice(name=k.capitalize(), value=k)
-    for k in RANK_ORDER
-]
 
 
 class TeamCog(commands.Cog):
@@ -63,8 +24,8 @@ class TeamCog(commands.Cog):
     async def rt_team_create(self, interaction: discord.Interaction, name: str) -> None:
         await interaction.response.defer(ephemeral=True)
 
-        session = self.bot.http_session  # type: ignore[attr-defined]
-        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+        session = get_session(self.bot)
+        api_secret = get_api_secret(self.bot)
 
         try:
             async with session.get(f"/api/teams/by-captain/{interaction.user.id}") as resp:
@@ -116,8 +77,8 @@ class TeamCog(commands.Cog):
     async def rt_team_edit(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
-        session = self.bot.http_session  # type: ignore[attr-defined]
-        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+        session = get_session(self.bot)
+        api_secret = get_api_secret(self.bot)
 
         try:
             async with session.get(f"/api/teams/by-captain/{interaction.user.id}") as resp:
@@ -176,8 +137,8 @@ class TeamCog(commands.Cog):
         riot_id: str,
         role: app_commands.Choice[str],
     ) -> None:
-        parts = riot_id.split("#", 1)
-        if len(parts) != 2 or not parts[0] or not parts[1]:
+        parsed = parse_riot_id(riot_id)
+        if not parsed:
             await interaction.response.send_message(
                 "Format invalide. Utilise `Pseudo#TAG`.",
                 ephemeral=True,
@@ -186,8 +147,8 @@ class TeamCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        session = self.bot.http_session  # type: ignore[attr-defined]
-        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+        session = get_session(self.bot)
+        api_secret = get_api_secret(self.bot)
 
         try:
             async with session.get(f"/api/teams/by-captain/{interaction.user.id}") as resp:
@@ -201,7 +162,7 @@ class TeamCog(commands.Cog):
             await interaction.followup.send(format_api_error(exc))
             return
 
-        name, tag = parts
+        name, tag = parsed
         player_slug = f"{name}-{tag}"
 
         try:
@@ -242,8 +203,8 @@ class TeamCog(commands.Cog):
     @team_roster_group.command(name="remove", description="Retirer un joueur du roster")
     @app_commands.describe(riot_id="Riot ID du joueur (ex: Pseudo#TAG)")
     async def roster_remove(self, interaction: discord.Interaction, riot_id: str) -> None:
-        parts = riot_id.split("#", 1)
-        if len(parts) != 2 or not parts[0] or not parts[1]:
+        parsed = parse_riot_id(riot_id)
+        if not parsed:
             await interaction.response.send_message(
                 "Format invalide. Utilise `Pseudo#TAG`.",
                 ephemeral=True,
@@ -252,8 +213,8 @@ class TeamCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        session = self.bot.http_session  # type: ignore[attr-defined]
-        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+        session = get_session(self.bot)
+        api_secret = get_api_secret(self.bot)
 
         try:
             async with session.get(f"/api/teams/by-captain/{interaction.user.id}") as resp:
@@ -267,7 +228,7 @@ class TeamCog(commands.Cog):
             await interaction.followup.send(format_api_error(exc))
             return
 
-        name, tag = parts
+        name, tag = parsed
         player_slug = f"{name}-{tag}"
 
         try:
@@ -311,7 +272,7 @@ class TeamCog(commands.Cog):
         if max_rank:
             params["max_rank"] = max_rank
 
-        session = self.bot.http_session  # type: ignore[attr-defined]
+        session = get_session(self.bot)
         try:
             async with session.get("/api/teams", params=params) as resp:
                 resp.raise_for_status()
@@ -397,7 +358,7 @@ class TeamCog(commands.Cog):
 
         embed.set_footer(text=f"Page {page + 1}/{total_pages} · {total} équipes LFP au total")
 
-        filters_encoded = _encode_filters(role, min_rank, max_rank)
+        filters_encoded = encode_list_filters(role, min_rank, max_rank)
         view = discord.ui.View(timeout=None)
         view.add_item(discord.ui.Button(
             label="◀ Précédent",
@@ -450,7 +411,7 @@ class TeamCog(commands.Cog):
 
         parts = custom_id[len("rt_lft_page:"):].split(":", 1)
         page = int(parts[0])
-        role, min_rank, max_rank = _decode_filters(parts[1]) if len(parts) > 1 else (None, None, None)
+        role, min_rank, max_rank = decode_list_filters(parts[1]) if len(parts) > 1 else (None, None, None)
 
         await interaction.response.defer(ephemeral=True)
         await self._fetch_lft_and_respond(interaction, page, role, min_rank, max_rank, edit=True)

@@ -127,9 +127,7 @@ async def deactivate_inactive() -> dict[str, list[str]]:
         for p in players:
             p.is_lft = False
             deactivated_players.append(p.discord_user_id)
-        await db.commit()
 
-    async with async_session() as db:
         team_stmt = (
             select(Team)
             .where(Team.is_lfp == True, Team.updated_at < cutoff)
@@ -139,6 +137,7 @@ async def deactivate_inactive() -> dict[str, list[str]]:
         for t in teams:
             t.is_lfp = False
             deactivated_teams.append(t.captain_discord_id)
+
         await db.commit()
 
     logger.info(

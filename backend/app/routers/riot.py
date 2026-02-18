@@ -1,21 +1,15 @@
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.config import settings
+from app.dependencies import get_riot_client, verify_bot_secret
 from app.schemas.player import RiotCheckResponse
-from shared.riot_client import RiotAPIError, RiotClient
+from shared.riot_client import RiotAPIError
 
 router = APIRouter(tags=["riot"])
 
 
 @router.get("/riot/check/{name}/{tag}", response_model=RiotCheckResponse)
-async def check_riot_id(name: str, tag: str, request: Request, x_bot_secret: str = Header(...)):
-    if x_bot_secret != settings.bot_api_secret:
-        raise HTTPException(403, "Invalid bot secret")
-    client = getattr(request.app.state, "riot_client", None)
-    if not client:
-        if not settings.riot_api_key:
-            raise HTTPException(503, "Riot API key not configured")
-        client = RiotClient(settings.riot_api_key)
+async def check_riot_id(name: str, tag: str, request: Request, _: str = Depends(verify_bot_secret)):
+    client = get_riot_client(request)
     try:
         account = await client.get_account_by_riot_id(name, tag)
     except RiotAPIError as e:

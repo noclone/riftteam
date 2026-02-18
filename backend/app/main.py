@@ -3,10 +3,11 @@ import logging
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.dependencies import verify_bot_secret
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.routers import guild_settings, players, riot, scrims, teams, tokens
 from app.routers.og import router as og_router
@@ -72,8 +73,6 @@ async def health():
 
 
 @app.post("/api/maintenance/deactivate-inactive")
-async def maintenance_deactivate(x_bot_secret: str = Header(...)):
-    if x_bot_secret != settings.bot_api_secret:
-        raise HTTPException(403, "Invalid bot secret")
+async def maintenance_deactivate(_: str = Depends(verify_bot_secret)):
     result = await deactivate_inactive()
     return result

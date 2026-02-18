@@ -44,7 +44,20 @@ RANK_COLORS: dict[str, int] = {
 
 ACTIVITY_CHOICES = ["SCRIMS", "TOURNOIS", "LAN", "FLEX", "CLASH"]
 
+ACTIVITY_LABELS: dict[str, str] = {
+    "SCRIMS": "Scrims",
+    "TOURNOIS": "Tournois",
+    "LAN": "LAN",
+    "FLEX": "Flex",
+    "CLASH": "Clash",
+}
+
 AMBIANCE_CHOICES = ["FUN", "TRYHARD"]
+
+AMBIANCE_LABELS: dict[str, str] = {
+    "FUN": "For fun",
+    "TRYHARD": "Tryhard",
+}
 
 QUEUE_RANKED_SOLO = 420
 QUEUE_RANKED_FLEX = 440

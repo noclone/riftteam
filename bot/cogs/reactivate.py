@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from utils import format_api_error
+from utils import format_api_error, get_api_secret, get_session
 
 log = logging.getLogger("riftteam.reactivate")
 
@@ -22,8 +22,8 @@ class ReactivateCog(commands.Cog):
         await interaction.followup.send(f"{player_msg}\n{team_msg}")
 
     async def _reactivate_player(self, user_id: str) -> str:
-        session = self.bot.http_session  # type: ignore[attr-defined]
-        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+        session = get_session(self.bot)
+        api_secret = get_api_secret(self.bot)
         try:
             async with session.get(f"/api/players/by-discord/{user_id}") as resp:
                 if resp.status != 200:
@@ -44,8 +44,8 @@ class ReactivateCog(commands.Cog):
             return format_api_error(exc)
 
     async def _reactivate_team(self, user_id: str) -> str:
-        session = self.bot.http_session  # type: ignore[attr-defined]
-        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+        session = get_session(self.bot)
+        api_secret = get_api_secret(self.bot)
         try:
             async with session.get(f"/api/teams/by-captain/{user_id}") as resp:
                 if resp.status != 200:

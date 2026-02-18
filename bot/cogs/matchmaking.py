@@ -1,33 +1,16 @@
 import logging
-import os
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
 from cogs.profile import build_profile_embed
-from shared.constants import RANK_COLORS, RANK_ORDER, ROLE_EMOJIS, ROLE_NAMES
+from config import APP_URL, RANK_ICON_BASE
+from shared.constants import ACTIVITY_LABELS, AMBIANCE_LABELS, RANK_COLORS, RANK_ORDER, ROLE_EMOJIS, ROLE_NAMES
 from shared.format import format_rank, format_rank_range
-from utils import format_api_error
-
-APP_URL = os.getenv("APP_URL", "http://localhost:5173")
+from utils import format_api_error, get_session, parse_riot_id
 
 log = logging.getLogger("riftteam.matchmaking")
-
-RANK_ICON_BASE = "https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-crests"
-
-ACTIVITY_LABELS: dict[str, str] = {
-    "SCRIMS": "Scrims",
-    "TOURNOIS": "Tournois",
-    "LAN": "LAN",
-    "FLEX": "Flex",
-    "CLASH": "Clash",
-}
-
-AMBIANCE_LABELS: dict[str, str] = {
-    "FUN": "For fun",
-    "TRYHARD": "Tryhard",
-}
 
 
 def _rank_in_range(player_tier: str | None, min_rank: str | None, max_rank: str | None) -> bool:
@@ -144,7 +127,7 @@ class MatchmakingCog(commands.Cog):
 
     async def _do_apply(self, interaction: discord.Interaction, team_slug: str) -> None:
         """Core apply logic. Interaction must already be deferred (ephemeral)."""
-        session = self.bot.http_session  # type: ignore[attr-defined]
+        session = get_session(self.bot)
 
         try:
             async with session.get(f"/api/players/by-discord/{interaction.user.id}") as resp:
@@ -249,7 +232,7 @@ class MatchmakingCog(commands.Cog):
 
     async def _do_recruit(self, interaction: discord.Interaction, player_slug: str) -> None:
         """Core recruit logic. Interaction must already be deferred (ephemeral)."""
-        session = self.bot.http_session  # type: ignore[attr-defined]
+        session = get_session(self.bot)
 
         try:
             async with session.get(f"/api/teams/by-captain/{interaction.user.id}") as resp:
@@ -372,8 +355,8 @@ class MatchmakingCog(commands.Cog):
     @app_commands.command(name="rt-recruit", description="Recrute un joueur pour ton équipe")
     @app_commands.describe(riot_id="Riot ID du joueur (ex: Pseudo#TAG)")
     async def rt_recruit(self, interaction: discord.Interaction, riot_id: str) -> None:
-        parts = riot_id.split("#", 1)
-        if len(parts) != 2 or not parts[0] or not parts[1]:
+        parsed = parse_riot_id(riot_id)
+        if not parsed:
             await interaction.response.send_message(
                 "Format invalide. Utilise `Pseudo#TAG`.",
                 ephemeral=True,
@@ -381,7 +364,7 @@ class MatchmakingCog(commands.Cog):
             return
 
         await interaction.response.defer(ephemeral=True)
-        name, tag = parts
+        name, tag = parsed
         slug = f"{name}-{tag}"
         await self._do_recruit(interaction, slug)
 
@@ -389,7 +372,7 @@ class MatchmakingCog(commands.Cog):
     async def rt_post_profil(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
-        session = self.bot.http_session  # type: ignore[attr-defined]
+        session = get_session(self.bot)
 
         try:
             async with session.get(f"/api/players/by-discord/{interaction.user.id}") as resp:
@@ -428,7 +411,7 @@ class MatchmakingCog(commands.Cog):
     async def rt_post_team(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
-        session = self.bot.http_session  # type: ignore[attr-defined]
+        session = get_session(self.bot)
 
         try:
             async with session.get(f"/api/teams/by-captain/{interaction.user.id}") as resp:

@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models.player import Player
 from app.models.team import Team, TeamMember
 from app.services.og_generator import generate_og_image, generate_team_og_image
-from shared.constants import RANK_COLORS, ROLE_NAMES
+from shared.constants import ACTIVITY_LABELS, RANK_COLORS, ROLE_NAMES
 from shared.format import format_rank, format_win_rate
 
 router = APIRouter()
@@ -66,8 +66,7 @@ def _build_og_html(player: Player) -> str:
     if top_champs:
         desc_parts.append(", ".join(c.champion_name for c in top_champs))
     if player.activities:
-        activity_labels = {"SCRIMS": "Scrims", "TOURNOIS": "Tournois", "LAN": "LAN", "FLEX": "Flex", "CLASH": "Clash"}
-        desc_parts.append(", ".join(activity_labels.get(a, a) for a in player.activities))
+        desc_parts.append(", ".join(ACTIVITY_LABELS.get(a, a) for a in player.activities))
     description = " · ".join(desc_parts) if desc_parts else "Profil joueur LoL"
 
     og_image = f"{settings.api_url}/api/og/{player.slug}.png"

@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.database import get_db
+from app.dependencies import verify_bot_secret
 from app.models.guild_settings import GuildSettings
 
 router = APIRouter(tags=["guild-settings"])
@@ -36,11 +36,9 @@ async def get_guild_settings(guild_id: str, db: AsyncSession = Depends(get_db)):
 async def upsert_guild_settings(
     guild_id: str,
     body: GuildSettingsUpdate,
-    x_bot_secret: str = Header(...),
+    _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
-    if x_bot_secret != settings.bot_api_secret:
-        raise HTTPException(403, "Invalid bot secret")
 
     result = await db.execute(
         select(GuildSettings).where(GuildSettings.guild_id == guild_id)

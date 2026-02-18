@@ -1,33 +1,16 @@
 import logging
-import os
 from datetime import datetime
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-from shared.constants import RANK_COLORS, ROLE_EMOJIS, ROLE_NAMES
+from config import APP_URL, RANK_ICON_BASE
+from shared.constants import ACTIVITY_LABELS, AMBIANCE_LABELS, RANK_COLORS, ROLE_EMOJIS, ROLE_NAMES
 from shared.format import format_rank, format_win_rate
-from utils import format_api_error
-
-APP_URL = os.getenv("APP_URL", "http://localhost:5173")
+from utils import format_api_error, get_session, parse_riot_id
 
 log = logging.getLogger("riftteam.profile")
-
-RANK_ICON_BASE = "https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-crests"
-
-ACTIVITY_LABELS: dict[str, str] = {
-    "SCRIMS": "Scrims",
-    "TOURNOIS": "Tournois",
-    "LAN": "LAN",
-    "FLEX": "Flex",
-    "CLASH": "Clash",
-}
-
-AMBIANCE_LABELS: dict[str, str] = {
-    "FUN": "For fun",
-    "TRYHARD": "Tryhard",
-}
 
 
 def _role_display(primary: str | None, secondary: str | None) -> str:
@@ -145,20 +128,20 @@ class ProfileCog(commands.Cog):
     @app_commands.command(name="rt-profil-show", description="Affiche le profil RiftTeam d'un joueur")
     @app_commands.describe(riot_id="Riot ID du joueur (ex: Pseudo#TAG)")
     async def rt_profil(self, interaction: discord.Interaction, riot_id: str) -> None:
-        parts = riot_id.split("#", 1)
-        if len(parts) != 2 or not parts[0] or not parts[1]:
+        parsed = parse_riot_id(riot_id)
+        if not parsed:
             await interaction.response.send_message(
                 "Format invalide. Utilise `Pseudo#TAG` (ex: `noclone67#EUW`).",
                 ephemeral=True,
             )
             return
 
-        name, tag = parts
+        name, tag = parsed
         slug = f"{name}-{tag}"
 
         await interaction.response.defer()
 
-        session = self.bot.http_session  # type: ignore[attr-defined]
+        session = get_session(self.bot)
         try:
             async with session.get(f"/api/players/{slug}") as resp:
                 if resp.status == 404:

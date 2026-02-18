@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 from datetime import datetime
 
@@ -8,11 +7,11 @@ from discord import app_commands
 from discord.ext import commands
 from zoneinfo import ZoneInfo
 
-from shared.constants import RANK_COLORS, RANK_ORDER, ROLE_EMOJIS, ROLE_NAMES
+from config import APP_URL
+from constants import RANK_CHOICES
+from shared.constants import RANK_COLORS, ROLE_EMOJIS, ROLE_NAMES
 from shared.format import format_rank, format_rank_range
-from utils import format_api_error
-
-APP_URL = os.getenv("APP_URL", "http://localhost:5173")
+from utils import format_api_error, get_api_secret, get_session
 
 log = logging.getLogger("riftteam.scrim")
 
@@ -28,11 +27,6 @@ FORMAT_CHOICES = [
     app_commands.Choice(name="3 games", value="G3"),
     app_commands.Choice(name="4 games", value="G4"),
     app_commands.Choice(name="5 games", value="G5"),
-]
-
-RANK_CHOICES = [
-    app_commands.Choice(name=k.capitalize(), value=k)
-    for k in RANK_ORDER
 ]
 
 
@@ -208,8 +202,8 @@ class ScrimCog(commands.Cog):
     ) -> None:
         await interaction.response.defer(ephemeral=True)
 
-        session = self.bot.http_session  # type: ignore[attr-defined]
-        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+        session = get_session(self.bot)
+        api_secret = get_api_secret(self.bot)
 
         try:
             async with session.get(f"/api/teams/by-captain/{interaction.user.id}") as resp:
@@ -297,8 +291,8 @@ class ScrimCog(commands.Cog):
     async def rt_scrim_cancel(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
-        session = self.bot.http_session  # type: ignore[attr-defined]
-        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+        session = get_session(self.bot)
+        api_secret = get_api_secret(self.bot)
 
         try:
             async with session.get(f"/api/teams/by-captain/{interaction.user.id}") as resp:
@@ -417,7 +411,7 @@ class ScrimCog(commands.Cog):
         if hour_max is not None:
             params["hour_max"] = str(hour_max)
 
-        session = self.bot.http_session  # type: ignore[attr-defined]
+        session = get_session(self.bot)
         try:
             async with session.get("/api/scrims", params=params) as resp:
                 resp.raise_for_status()

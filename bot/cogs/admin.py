@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from utils import format_api_error
+from utils import format_api_error, get_api_secret, get_session
 
 log = logging.getLogger("riftteam.admin")
 
@@ -19,8 +19,8 @@ class AdminCog(commands.Cog):
         assert interaction.guild is not None
         await interaction.response.defer(ephemeral=True)
 
-        session = self.bot.http_session  # type: ignore[attr-defined]
-        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+        session = get_session(self.bot)
+        api_secret = get_api_secret(self.bot)
 
         try:
             async with session.put(
@@ -42,7 +42,7 @@ class AdminCog(commands.Cog):
 
 
 async def get_announcement_channel(bot: commands.Bot, guild_id: int) -> int | None:
-    session = bot.http_session  # type: ignore[attr-defined]
+    session = get_session(bot)
     try:
         async with session.get(f"/api/guild-settings/{guild_id}") as resp:
             if resp.status == 404:
