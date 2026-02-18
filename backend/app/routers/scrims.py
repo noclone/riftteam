@@ -17,6 +17,7 @@ router = APIRouter(tags=["scrims"])
 
 
 async def _get_scrim_or_404(scrim_id: str, db: AsyncSession) -> Scrim:
+    """Load a scrim with its team and roster by ID, or raise 404."""
     stmt = (
         select(Scrim)
         .options(selectinload(Scrim.team).selectinload(Team.members).selectinload(TeamMember.player))
@@ -35,6 +36,7 @@ async def create_scrim(
     _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
+    """Post a new scrim request, deactivating any previous active scrim for the team."""
 
     stmt = (
         select(Team)
@@ -96,6 +98,7 @@ async def list_scrims(
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
+    """List upcoming active scrims with optional date, time, rank and format filters."""
     now = datetime.now(timezone.utc)
     base_filter = [Scrim.is_active == True, Scrim.scheduled_at >= now]
 
@@ -154,6 +157,7 @@ async def cancel_team_scrims(
     _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
+    """Deactivate all active scrims for a team (bot-only)."""
 
     stmt = select(Team).where(Team.slug == team_slug)
     result = await db.execute(stmt)
@@ -180,6 +184,7 @@ async def cancel_scrim(
     _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
+    """Deactivate a single scrim by ID (bot-only)."""
 
     scrim = await _get_scrim_or_404(scrim_id, db)
     scrim.is_active = False

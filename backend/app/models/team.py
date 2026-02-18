@@ -9,6 +9,8 @@ from app.models.player import Base
 
 
 class Team(Base):
+    """A team created by a captain, with roster members and LFP settings."""
+
     __tablename__ = "teams"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -36,10 +38,13 @@ class Team(Base):
 
     @staticmethod
     def make_slug(name: str) -> str:
+        """Generate a URL-safe slug from the team name."""
         return name.lower().replace(" ", "-")
 
 
 class TeamMember(Base):
+    """Association between a player and their team with an assigned role."""
+
     __tablename__ = "team_members"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

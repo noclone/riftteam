@@ -20,6 +20,7 @@ SYNC_INTERVAL = 12 * 3600
 
 
 async def _rank_sync_loop(app: FastAPI) -> None:
+    """Background loop that refreshes all active players' ranks every 12 hours."""
     while True:
         try:
             await sync_active_ranks(client=app.state.riot_client)
@@ -30,6 +31,7 @@ async def _rank_sync_loop(app: FastAPI) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Initialize the Riot client and start the periodic rank sync task."""
     if settings.riot_api_key:
         app.state.riot_client = RiotClient(settings.riot_api_key)
     else:
@@ -61,6 +63,7 @@ app.include_router(og_router)
 
 @app.get("/api/health")
 async def health():
+    """Return API and database health status."""
     from sqlalchemy import text
     from app.database import async_session
     try:
@@ -74,5 +77,6 @@ async def health():
 
 @app.post("/api/maintenance/deactivate-inactive")
 async def maintenance_deactivate(_: str = Depends(verify_bot_secret)):
+    """Deactivate inactive players and teams (bot-only, authenticated)."""
     result = await deactivate_inactive()
     return result

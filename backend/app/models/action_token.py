@@ -7,6 +7,8 @@ from app.models.player import Base
 
 
 class ActionToken(Base):
+    """Short-lived token linking a Discord bot action to the web frontend."""
+
     __tablename__ = "action_tokens"
 
     token: Mapped[str] = mapped_column(String(32), primary_key=True)

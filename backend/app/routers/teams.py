@@ -29,6 +29,7 @@ VALID_ROLES = {"TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"}
 
 
 async def _get_team_or_404(slug: str, db: AsyncSession) -> Team:
+    """Load a team with roster by slug, or raise 404."""
     stmt = select(Team).options(selectinload(Team.members).selectinload(TeamMember.player)).where(Team.slug == slug)
     result = await db.execute(stmt)
     team = result.scalar_one_or_none()
@@ -43,6 +44,7 @@ async def create_team(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    """Create a new team from a Discord bot token."""
     token_data = await consume_token(db, token, "team_create")
     if token_data is None:
         raise HTTPException(403, "Token invalide ou expiré")
@@ -92,6 +94,7 @@ async def get_team_by_captain(
     _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
+    """Look up a team by its captain's Discord user ID (bot-only)."""
     stmt = (
         select(Team)
         .options(selectinload(Team.members).selectinload(TeamMember.player))
@@ -110,6 +113,7 @@ async def get_team(
     token: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
+    """Return a team profile (hidden teams require a valid edit token)."""
     team = await _get_team_or_404(slug, db)
 
     if not team.is_lfp:
@@ -130,6 +134,7 @@ async def list_teams(
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
+    """List teams with optional LFP, wanted role and rank filters."""
     stmt = select(Team).options(selectinload(Team.members).selectinload(TeamMember.player))
     count_stmt = select(func.count(Team.id))
 
@@ -158,6 +163,7 @@ async def check_team_name(
     exclude_slug: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
+    """Check whether a team name (slug) is available."""
     slug = Team.make_slug(name)
     stmt = select(Team.id).where(Team.slug == slug)
     if exclude_slug:
@@ -173,6 +179,7 @@ async def update_team(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    """Partially update team settings including name (requires edit token)."""
     token_data = await validate_token(db, token)
     if token_data is None or token_data.action != "team_edit" or token_data.slug != slug:
         raise HTTPException(403, "Token invalide ou expiré")
@@ -207,6 +214,7 @@ async def export_team(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    """Download the full team profile as a JSON file."""
     token_data = await validate_token(db, token)
     if token_data is None or token_data.action != "team_edit" or token_data.slug != slug:
         raise HTTPException(403, "Token invalide ou expiré")
@@ -225,6 +233,7 @@ async def delete_team(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    """Delete a team permanently (requires edit token)."""
     token_data = await validate_token(db, token)
     if token_data is None or token_data.action != "team_edit" or token_data.slug != slug:
         raise HTTPException(403, "Token invalide ou expiré")
@@ -242,6 +251,7 @@ async def add_member(
     _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
+    """Add a player to the team roster, auto-creating the player if needed."""
 
     team = await _get_team_or_404(slug, db)
 
@@ -308,6 +318,7 @@ async def remove_member(
     discord_user_id: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    """Remove a player from the team roster (captain-only, bot-only)."""
 
     team = await _get_team_or_404(slug, db)
 
@@ -338,6 +349,7 @@ async def reactivate_team(
     discord_user_id: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    """Re-enable LFP status for an inactive team (captain-only, bot-only)."""
 
     team = await _get_team_or_404(slug, db)
 

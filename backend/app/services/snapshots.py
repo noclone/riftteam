@@ -13,6 +13,7 @@ async def record_rank_snapshot(
     rank_data: dict,
     recorded_at: datetime | None = None,
 ) -> None:
+    """Persist a rank snapshot for solo and flex queues."""
     ts = recorded_at or datetime.now(timezone.utc)
 
     for queue_type, prefix in [("RANKED_SOLO_5x5", "solo"), ("RANKED_FLEX_SR", "flex")]:
@@ -40,6 +41,7 @@ async def record_champion_snapshot(
     secondary_role: str | None,
     recorded_at: datetime | None = None,
 ) -> None:
+    """Persist a champion pool snapshot with roles and stats."""
     ts = recorded_at or datetime.now(timezone.utc)
     snapshot = ChampionSnapshot(
         player_id=player_id,
@@ -52,6 +54,7 @@ async def record_champion_snapshot(
 
 
 def update_peak_rank(player: Player, tier: str | None, division: str | None, lp: int | None) -> None:
+    """Update the player's peak solo rank if the new rank is higher."""
     if is_higher_rank(tier, division, lp, player.peak_solo_tier, player.peak_solo_division, player.peak_solo_lp):
         player.peak_solo_tier = tier
         player.peak_solo_division = division

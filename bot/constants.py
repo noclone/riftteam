@@ -1,3 +1,5 @@
+"""Discord app_commands choices for role and rank slash-command options."""
+
 from discord import app_commands
 
 from shared.constants import RANK_ORDER

@@ -16,6 +16,8 @@ PAGE_SIZE = 5
 
 
 class TeamCog(commands.Cog):
+    """Slash commands for team CRUD, roster management and LFT team browsing."""
+
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
@@ -250,6 +252,7 @@ class TeamCog(commands.Cog):
         *,
         edit: bool = False,
     ) -> None:
+        """Fetch a page of LFP teams from the API and send/edit the response."""
         params: dict[str, str] = {
             "is_lfp": "true",
             "limit": str(PAGE_SIZE),

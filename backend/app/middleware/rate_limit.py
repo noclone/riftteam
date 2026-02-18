@@ -15,6 +15,7 @@ _last_cleanup = time.monotonic()
 
 
 def _cleanup() -> None:
+    """Periodically purge expired and excess IP buckets."""
     global _last_cleanup
     now = time.monotonic()
     if now - _last_cleanup < CLEANUP_INTERVAL:
@@ -31,6 +32,7 @@ def _cleanup() -> None:
 
 
 def _get_client_ip(request: Request) -> str:
+    """Extract the client IP from X-Forwarded-For or the direct connection."""
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         return forwarded.split(",")[0].strip()
@@ -38,6 +40,8 @@ def _get_client_ip(request: Request) -> str:
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Per-IP sliding-window rate limiter for non-GET /api/ endpoints."""
+
     async def dispatch(self, request: Request, call_next) -> Response:
         if request.method != "GET":
             return await call_next(request)

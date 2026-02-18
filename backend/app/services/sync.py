@@ -15,6 +15,7 @@ logger = logging.getLogger("riftteam.sync")
 
 
 async def sync_active_ranks(client: RiotClient | None = None) -> int:
+    """Refresh solo/flex ranks for all active LFT players via the Riot API."""
     if not client and not settings.riot_api_key:
         logger.warning("Skipping rank sync: no Riot API key configured")
         return 0
@@ -43,6 +44,7 @@ async def sync_active_ranks(client: RiotClient | None = None) -> int:
 
 
 async def _sync_player_rank(player: Player, client: RiotClient) -> None:
+    """Fetch and persist updated rank data for a single player."""
     summoner = await client.get_summoner_by_puuid(player.riot_puuid)
     entries = await client.get_league_entries(player.riot_puuid)
 
@@ -113,6 +115,7 @@ INACTIVITY_THRESHOLD = timedelta(days=14)
 
 
 async def deactivate_inactive() -> dict[str, list[str]]:
+    """Set is_lft/is_lfp to False for players and teams inactive for 14+ days."""
     cutoff = datetime.now(timezone.utc) - INACTIVITY_THRESHOLD
     deactivated_players: list[str] = []
     deactivated_teams: list[str] = []

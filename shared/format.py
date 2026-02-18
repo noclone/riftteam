@@ -15,6 +15,7 @@ RANK_SHORT_LABELS: dict[str, str] = {
 
 
 def format_rank(tier: str | None, division: str | None, lp: int | None = None) -> str:
+    """Format a rank as a human-readable string (e.g. 'Emerald II (45 LP)')."""
     if not tier:
         return "Unranked"
     label = tier.capitalize()
@@ -26,6 +27,7 @@ def format_rank(tier: str | None, division: str | None, lp: int | None = None) -
 
 
 def format_win_rate(wins: int | None, losses: int | None, *, include_games: bool = False) -> str:
+    """Format win rate as a percentage string, optionally with total games."""
     w = wins or 0
     l = losses or 0
     total = w + l
@@ -40,6 +42,7 @@ def format_win_rate(wins: int | None, losses: int | None, *, include_games: bool
 def format_rank_range(
     min_rank: str | None, max_rank: str | None, *, abbreviated: bool = False
 ) -> str:
+    """Format a rank range (e.g. 'Gold → Diamond') or 'Tous elos' if unbounded."""
     def _label(r: str | None) -> str:
         if not r:
             return ""

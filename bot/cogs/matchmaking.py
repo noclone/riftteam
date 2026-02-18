@@ -14,6 +14,7 @@ log = logging.getLogger("riftteam.matchmaking")
 
 
 def _rank_in_range(player_tier: str | None, min_rank: str | None, max_rank: str | None) -> bool:
+    """Check whether a player's rank falls within the specified range."""
     if not min_rank and not max_rank:
         return True
     if not player_tier:
@@ -33,6 +34,7 @@ def _rank_in_range(player_tier: str | None, min_rank: str | None, max_rank: str 
 
 
 def _role_matches(player: dict, wanted_roles: list[str] | None) -> bool:
+    """Check whether the player plays any of the team's wanted roles."""
     if not wanted_roles:
         return True
     primary = player.get("primary_role")
@@ -44,6 +46,7 @@ def _role_matches(player: dict, wanted_roles: list[str] | None) -> bool:
 
 
 def _pick_role(player: dict, wanted_roles: list[str] | None) -> str:
+    """Pick the best matching role for a player given team preferences."""
     primary = player.get("primary_role")
     secondary = player.get("secondary_role")
     if wanted_roles:
@@ -55,6 +58,7 @@ def _pick_role(player: dict, wanted_roles: list[str] | None) -> str:
 
 
 def _format_roles(player: dict) -> str:
+    """Format a player's roles as a slash-separated string."""
     primary = player.get("primary_role")
     secondary = player.get("secondary_role")
     roles = [r for r in [primary, secondary] if r]
@@ -64,10 +68,12 @@ def _format_roles(player: dict) -> str:
 
 
 def _format_wanted(wanted_roles: list[str]) -> str:
+    """Format a list of wanted roles as a comma-separated string."""
     return ", ".join(ROLE_NAMES.get(r, r) for r in wanted_roles)
 
 
 def build_team_embed(team: dict) -> discord.Embed:
+    """Build a rich Discord embed for a team profile."""
     min_rank = team.get("min_rank")
     max_rank = team.get("max_rank")
     tier = min_rank or max_rank
@@ -111,6 +117,8 @@ def build_team_embed(team: dict) -> discord.Embed:
 
 
 class MatchmakingCog(commands.Cog):
+    """Slash commands for applying to teams, recruiting players, and posting profiles/teams."""
+
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 

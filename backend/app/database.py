@@ -9,5 +9,6 @@ async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession]:
+    """Yield an async SQLAlchemy session, closing it on exit."""
     async with async_session() as session:
         yield session

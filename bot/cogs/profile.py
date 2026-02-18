@@ -14,6 +14,7 @@ log = logging.getLogger("riftteam.profile")
 
 
 def _role_display(primary: str | None, secondary: str | None) -> str:
+    """Format primary/secondary roles with Discord custom emojis."""
     if not primary:
         return "N/A"
     emoji = ROLE_EMOJIS.get(primary, "")
@@ -27,12 +28,14 @@ def _role_display(primary: str | None, secondary: str | None) -> str:
 
 
 def _rank_thumbnail(tier: str | None) -> str | None:
+    """Return the CommunityDragon rank icon URL, or None if unranked."""
     if not tier:
         return None
     return f"{RANK_ICON_BASE}/{tier.lower()}.png"
 
 
 def _champion_line(champ: dict) -> str:
+    """Format a single champion as a bold name with win rate and games played."""
     name = champ["champion_name"]
     gp = champ.get("games_played", 0)
     wins = champ.get("wins", 0)
@@ -43,6 +46,7 @@ def _champion_line(champ: dict) -> str:
 
 
 def build_profile_embed(player: dict) -> discord.Embed:
+    """Build a rich Discord embed for a player profile."""
     tier = player.get("rank_solo_tier")
     color = RANK_COLORS.get(tier, 0x2B2D31) if tier else 0x2B2D31
 
@@ -111,6 +115,8 @@ def build_profile_embed(player: dict) -> discord.Embed:
 
 
 class ProfileCog(commands.Cog):
+    """Slash command to display a player profile embed."""
+
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 

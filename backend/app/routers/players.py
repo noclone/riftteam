@@ -35,12 +35,14 @@ LAZY_REFRESH_THRESHOLD = timedelta(hours=6)
 
 
 def _ensure_utc(dt: datetime) -> datetime:
+    """Attach UTC tzinfo to a naive datetime, or return as-is if aware."""
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt
 
 
 async def _get_player_or_404(slug: str, db: AsyncSession) -> Player:
+    """Load a player with champions by slug, or raise 404."""
     stmt = select(Player).options(selectinload(Player.champions)).where(Player.slug == slug)
     result = await db.execute(stmt)
     player = result.scalar_one_or_none()
@@ -56,6 +58,7 @@ async def create_player(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    """Create a new player profile from a Discord bot token and Riot API data."""
     token_data = await consume_token(db, token, "create")
     if token_data is None:
         raise HTTPException(403, "Token invalide ou expiré")
@@ -143,6 +146,7 @@ _refreshing_players: set = set()
 
 
 async def _lazy_rank_refresh(player_id, slug: str, riot_client: RiotClient) -> None:
+    """Background task: refresh a player's rank if data is older than 6 hours."""
     try:
         async with async_session() as db:
             stmt = select(Player).where(Player.id == player_id)
@@ -163,6 +167,7 @@ async def get_player_by_discord(
     _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
+    """Look up a player by Discord user ID (bot-only)."""
     stmt = select(Player).options(selectinload(Player.champions)).where(Player.discord_user_id == discord_user_id)
     result = await db.execute(stmt)
     player = result.scalar_one_or_none()
@@ -178,6 +183,7 @@ async def get_player(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
+    """Return a player profile, triggering a lazy rank refresh if data is stale."""
     player = await _get_player_or_404(slug, db)
 
     if player.last_riot_sync and player.id not in _refreshing_players:
@@ -201,6 +207,7 @@ async def list_players(
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
+    """List players with optional LFT, role and rank filters."""
     stmt = select(Player).options(selectinload(Player.champions))
     count_stmt = select(func.count(Player.id))
 
@@ -230,6 +237,7 @@ async def update_player(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    """Partially update player-declared fields (requires edit token)."""
     token_data = await validate_token(db, token)
     if token_data is None or token_data.action != "edit" or token_data.slug != slug:
         raise HTTPException(403, "Token invalide ou expiré")
@@ -252,6 +260,7 @@ async def export_player(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    """Download the full player profile as a JSON file."""
     token_data = await validate_token(db, token)
     if token_data is None or token_data.action != "edit" or token_data.slug != slug:
         raise HTTPException(403, "Token invalide ou expiré")
@@ -270,6 +279,7 @@ async def delete_player(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    """Delete a player profile permanently (requires edit token)."""
     token_data = await validate_token(db, token)
     if token_data is None or token_data.action != "edit" or token_data.slug != slug:
         raise HTTPException(403, "Token invalide ou expiré")
@@ -286,6 +296,7 @@ async def refresh_player(
     _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
+    """Re-fetch all Riot data for a player (1-hour cooldown, bot-only)."""
     player = await _get_player_or_404(slug, db)
 
     if player.last_riot_sync:
@@ -330,6 +341,7 @@ async def reactivate_player(
     discord_user_id: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    """Re-enable LFT status for an inactive player (bot-only)."""
 
     player = await _get_player_or_404(slug, db)
 

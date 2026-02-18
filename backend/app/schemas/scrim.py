@@ -7,6 +7,8 @@ from app.schemas.team import TeamResponse
 
 
 class ScrimCreate(BaseModel):
+    """Fields submitted when creating a new scrim request."""
+
     team_slug: str
     captain_discord_id: str
     min_rank: str | None = None
@@ -18,6 +20,8 @@ class ScrimCreate(BaseModel):
 
 
 class ScrimResponse(BaseModel):
+    """Full scrim details with the associated team."""
+
     id: UUID
     team_id: UUID
     captain_discord_id: str
@@ -36,5 +40,7 @@ class ScrimResponse(BaseModel):
 
 
 class ScrimListResponse(BaseModel):
+    """Paginated list of scrims."""
+
     scrims: list[ScrimResponse]
     total: int

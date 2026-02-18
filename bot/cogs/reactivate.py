@@ -10,6 +10,8 @@ log = logging.getLogger("riftteam.reactivate")
 
 
 class ReactivateCog(commands.Cog):
+    """Slash commands and button handlers to reactivate inactive profiles/teams."""
+
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
@@ -26,6 +28,7 @@ class ReactivateCog(commands.Cog):
         await interaction.followup.send(msg)
 
     async def _reactivate_player(self, user_id: str) -> str:
+        """Re-enable LFT status for a player via the backend API."""
         session = get_session(self.bot)
         api_secret = get_api_secret(self.bot)
         try:
@@ -48,6 +51,7 @@ class ReactivateCog(commands.Cog):
             return format_api_error(exc)
 
     async def _reactivate_team(self, user_id: str) -> str:
+        """Re-enable LFP status for a team via the backend API."""
         session = get_session(self.bot)
         api_secret = get_api_secret(self.bot)
         try:

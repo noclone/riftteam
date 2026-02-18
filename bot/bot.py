@@ -26,6 +26,8 @@ DEACTIVATION_INTERVAL = 12 * 3600
 
 
 class RiftBot(commands.Bot):
+    """Discord bot that proxies all data through the RiftTeam backend API."""
+
     def __init__(self) -> None:
         intents = discord.Intents.default()
         super().__init__(command_prefix="!", intents=intents)
@@ -34,6 +36,7 @@ class RiftBot(commands.Bot):
         self._deactivation_task: asyncio.Task | None = None
 
     async def setup_hook(self) -> None:
+        """Create the HTTP session and load all cog extensions."""
         self.http_session = aiohttp.ClientSession(
             base_url=API_URL,
             headers={"X-Bot-Secret": BOT_API_SECRET},
@@ -43,6 +46,7 @@ class RiftBot(commands.Bot):
             log.info("Loaded %s", cog)
 
     async def on_ready(self) -> None:
+        """Sync slash commands and start the deactivation loop."""
         assert self.user is not None
         if DEV_GUILD_ID:
             guild = discord.Object(id=int(DEV_GUILD_ID))
@@ -55,6 +59,7 @@ class RiftBot(commands.Bot):
             self._deactivation_task = asyncio.create_task(self._deactivation_loop())
 
     async def _deactivation_loop(self) -> None:
+        """Periodically call the backend to deactivate stale players and teams."""
         await self.wait_until_ready()
         while not self.is_closed():
             try:
@@ -64,6 +69,7 @@ class RiftBot(commands.Bot):
             await asyncio.sleep(DEACTIVATION_INTERVAL)
 
     async def _run_deactivation(self) -> None:
+        """Call the deactivation endpoint and DM affected users."""
         if not self.http_session:
             return
         try:
@@ -94,6 +100,7 @@ class RiftBot(commands.Bot):
             )
 
     async def _send_deactivation_dm(self, discord_id: str, custom_id: str, message: str) -> None:
+        """Send a DM with a reactivation button to a deactivated user."""
         try:
             user = await self.fetch_user(int(discord_id))
             view = discord.ui.View(timeout=None)

@@ -5,6 +5,7 @@ from app.models.player import Player
 
 
 def apply_riot_data(player: Player, riot_data: dict) -> None:
+    """Copy Riot API data onto a Player model instance."""
     player.riot_puuid = riot_data["puuid"]
     player.riot_game_name = riot_data["game_name"]
     player.riot_tag_line = riot_data["tag_line"]
@@ -25,6 +26,7 @@ def apply_riot_data(player: Player, riot_data: dict) -> None:
 
 
 def populate_champions(player: Player, champions_data: list[dict]) -> None:
+    """Append PlayerChampion instances to a player from raw champion data."""
     for champ in champions_data:
         player.champions.append(
             PlayerChampion(
@@ -43,6 +45,7 @@ def populate_champions(player: Player, champions_data: list[dict]) -> None:
 
 
 def create_player_from_riot_data(riot_data: dict, slug: str, **extra_fields) -> Player:
+    """Build a new Player instance from fetched Riot data and declarative fields."""
     return Player(
         riot_puuid=riot_data["puuid"],
         riot_game_name=riot_data["game_name"],
@@ -70,6 +73,7 @@ def create_player_from_riot_data(riot_data: dict, slug: str, **extra_fields) -> 
 
 
 async def refresh_champions(db: AsyncSession, player: Player, champions_data: list[dict]) -> None:
+    """Delete existing champion rows and replace them with fresh data."""
     for champ in player.champions:
         await db.delete(champ)
     await db.flush()

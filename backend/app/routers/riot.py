@@ -9,6 +9,7 @@ router = APIRouter(tags=["riot"])
 
 @router.get("/riot/check/{name}/{tag}", response_model=RiotCheckResponse)
 async def check_riot_id(name: str, tag: str, request: Request):
+    """Verify that a Riot ID exists and return basic summoner info."""
     client = get_riot_client(request)
     try:
         account = await client.get_account_by_riot_id(name, tag)

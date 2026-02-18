@@ -1,3 +1,5 @@
+"""Bot-specific configuration loaded from environment variables."""
+
 import os
 
 APP_URL = os.getenv("APP_URL", "http://localhost:5173")

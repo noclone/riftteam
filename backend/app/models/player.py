@@ -7,10 +7,12 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
-    pass
+    """Shared declarative base for all SQLAlchemy models."""
 
 
 class Player(Base):
+    """A registered player profile linked to a Riot account."""
+
     __tablename__ = "players"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -62,4 +64,5 @@ class Player(Base):
 
     @staticmethod
     def make_slug(game_name: str, tag_line: str) -> str:
+        """Generate a URL-safe slug from a Riot ID (e.g. 'Faker-KR1')."""
         return f"{game_name}-{tag_line}"

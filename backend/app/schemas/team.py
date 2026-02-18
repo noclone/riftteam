@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 
 
 class PlayerSummary(BaseModel):
+    """Lightweight player info embedded in team member responses."""
+
     id: UUID
     slug: str
     riot_game_name: str
@@ -19,6 +21,8 @@ class PlayerSummary(BaseModel):
 
 
 class TeamMemberResponse(BaseModel):
+    """A team member with their assigned role and player summary."""
+
     player: PlayerSummary
     role: str
 
@@ -26,6 +30,8 @@ class TeamMemberResponse(BaseModel):
 
 
 class TeamCreate(BaseModel):
+    """Fields submitted when creating a new team (excluding name and captain)."""
+
     description: str | None = Field(default=None, max_length=500)
     activities: list[str] = Field(default=[])
     ambiance: str | None = None
@@ -38,6 +44,8 @@ class TeamCreate(BaseModel):
 
 
 class TeamUpdate(BaseModel):
+    """Partial update of team settings (all optional)."""
+
     name: str | None = Field(default=None, min_length=2, max_length=50)
     description: str | None = Field(default=None, max_length=500)
     activities: list[str] | None = None
@@ -51,6 +59,8 @@ class TeamUpdate(BaseModel):
 
 
 class TeamResponse(BaseModel):
+    """Full team profile with roster members."""
+
     id: UUID
     name: str
     slug: str
@@ -73,15 +83,21 @@ class TeamResponse(BaseModel):
 
 
 class TeamListResponse(BaseModel):
+    """Paginated list of teams."""
+
     teams: list[TeamResponse]
     total: int
 
 
 class RosterAddRequest(BaseModel):
+    """Request body to add a player to a team roster."""
+
     player_slug: str
     role: str
     discord_user_id: str
 
 
 class RosterRemoveRequest(BaseModel):
+    """Request body to remove a player from a team roster."""
+
     discord_user_id: str

@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 
 
 class ChampionResponse(BaseModel):
+    """Serialized champion mastery and recent match stats."""
+
     champion_id: int
     champion_name: str
     mastery_level: int | None = None
@@ -20,6 +22,8 @@ class ChampionResponse(BaseModel):
 
 
 class PlayerCreate(BaseModel):
+    """Declarative fields submitted by the player during profile creation."""
+
     description: str | None = Field(default=None, max_length=500)
     activities: list[str] = Field(default=[])
     ambiance: str | None = None
@@ -29,6 +33,8 @@ class PlayerCreate(BaseModel):
 
 
 class PlayerUpdate(BaseModel):
+    """Partial update of player-declared fields (all optional)."""
+
     description: str | None = Field(default=None, max_length=500)
     activities: list[str] | None = None
     ambiance: str | None = None
@@ -38,6 +44,8 @@ class PlayerUpdate(BaseModel):
 
 
 class PlayerResponse(BaseModel):
+    """Full player profile returned by the API, including Riot data and champions."""
+
     id: UUID
     slug: str
     riot_puuid: str
@@ -82,11 +90,15 @@ class PlayerResponse(BaseModel):
 
 
 class PlayerListResponse(BaseModel):
+    """Paginated list of player profiles."""
+
     players: list[PlayerResponse]
     total: int
 
 
 class RiotCheckResponse(BaseModel):
+    """Result of verifying a Riot ID exists via the API."""
+
     game_name: str
     tag_line: str
     puuid: str

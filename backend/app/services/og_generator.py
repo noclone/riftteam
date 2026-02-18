@@ -22,16 +22,19 @@ DDRAGON_VERSION: str | None = None
 
 
 def _hex_to_rgb(hex_int: int) -> tuple[int, int, int]:
+    """Convert a 0xRRGGBB integer to an (R, G, B) tuple."""
     return ((hex_int >> 16) & 0xFF, (hex_int >> 8) & 0xFF, hex_int & 0xFF)
 
 
 def _rank_rgb(tier: str | None) -> tuple[int, int, int]:
+    """Return the RGB color associated with a rank tier."""
     if not tier:
         return (100, 100, 100)
     return _hex_to_rgb(RANK_COLORS.get(tier.upper(), 0x6B6B6B))
 
 
 def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
+    """Load a DejaVu font from common system paths, falling back to the default."""
     names = (
         ["DejaVuSans-Bold.ttf", "DejaVuSans.ttf"]
         if bold
@@ -46,6 +49,7 @@ def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
 
 
 async def _get_ddragon_version() -> str:
+    """Fetch and cache the latest Data Dragon version string."""
     global DDRAGON_VERSION
     if DDRAGON_VERSION:
         return DDRAGON_VERSION
@@ -57,6 +61,7 @@ async def _get_ddragon_version() -> str:
 
 
 async def _download_icon(url: str, filename: str) -> Image.Image | None:
+    """Download an image and cache it on disk, returning None on failure."""
     ICON_DIR.mkdir(parents=True, exist_ok=True)
     cache_path = ICON_DIR / filename
     if cache_path.exists():
@@ -77,12 +82,14 @@ async def _download_icon(url: str, filename: str) -> Image.Image | None:
 
 
 async def _get_rank_icon(tier: str) -> Image.Image | None:
+    """Fetch the rank crest icon from CommunityDragon."""
     tier_lower = tier.lower()
     url = f"https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-crests/{tier_lower}.png"
     return await _download_icon(url, f"rank_{tier_lower}.png")
 
 
 async def _get_champion_icon(champion_name: str) -> Image.Image | None:
+    """Fetch a champion square icon from Data Dragon."""
     version = await _get_ddragon_version()
     safe_name = champion_name.replace(" ", "").replace("'", "")
     url = f"https://ddragon.leagueoflegends.com/cdn/{version}/img/champion/{safe_name}.png"
@@ -90,6 +97,7 @@ async def _get_champion_icon(champion_name: str) -> Image.Image | None:
 
 
 def _paste_rounded(dst: Image.Image, src: Image.Image, pos: tuple[int, int], size: int, radius: int) -> None:
+    """Paste an image with rounded-rectangle clipping onto a destination."""
     src = src.resize((size, size), Image.LANCZOS)
     mask = Image.new("L", (size, size), 0)
     ImageDraw.Draw(mask).rounded_rectangle([0, 0, size, size], radius=radius, fill=255)
@@ -97,6 +105,7 @@ def _paste_rounded(dst: Image.Image, src: Image.Image, pos: tuple[int, int], siz
 
 
 def _paste_icon(dst: Image.Image, src: Image.Image, pos: tuple[int, int], size: int) -> None:
+    """Resize and paste an icon, preserving alpha transparency."""
     src = src.resize((size, size), Image.LANCZOS)
     if src.mode == "RGBA":
         dst.paste(src, pos, src)
@@ -107,6 +116,7 @@ def _paste_icon(dst: Image.Image, src: Image.Image, pos: tuple[int, int], size: 
 
 
 async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
+    """Render a 1200x630 PNG Open Graph card for a player profile."""
     rank_color = _rank_rgb(player.get("rank_solo_tier"))
     dark = (24, 24, 32)
 
@@ -199,6 +209,7 @@ async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
 
 
 async def generate_team_og_image(team: dict) -> bytes:
+    """Render a 1200x630 PNG Open Graph card for a team profile."""
     dark = (24, 24, 32)
     min_tier = team.get("min_rank")
     rank_color = _rank_rgb(min_tier)

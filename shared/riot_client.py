@@ -6,6 +6,8 @@ import aiohttp
 
 
 class RiotAPIError(Exception):
+    """HTTP error returned by the Riot API."""
+
     def __init__(self, status: int, message: str):
         self.status = status
         self.message = message
@@ -16,6 +18,7 @@ _champion_id_to_name: dict[int, str] = {}
 
 
 async def get_champion_names() -> dict[int, str]:
+    """Fetch and cache the champion-id-to-name mapping from Data Dragon."""
     if _champion_id_to_name:
         return _champion_id_to_name
     async with aiohttp.ClientSession() as session:
@@ -35,6 +38,8 @@ CACHE_MAX_SIZE = 1000
 
 
 class RiotClient:
+    """Async Riot API client with dual-window rate limiting and in-memory cache."""
+
     def __init__(
         self,
         api_key: str,
@@ -52,6 +57,7 @@ class RiotClient:
         self._cache: dict[str, tuple[dict | list, float]] = {}
 
     async def _wait_for_rate_limit(self) -> None:
+        """Sleep if needed to stay within the 1s and 2min rate windows."""
         async with self._lock:
             now = time.monotonic()
 
@@ -75,6 +81,7 @@ class RiotClient:
             self._long_window.append(now)
 
     def _evict_cache(self) -> None:
+        """Remove expired entries and trim cache to CACHE_MAX_SIZE."""
         now = time.monotonic()
         expired = [k for k, (_, ts) in self._cache.items() if now - ts > CACHE_TTL]
         for k in expired:
@@ -85,6 +92,7 @@ class RiotClient:
                 del self._cache[k]
 
     async def _request(self, url: str, _retry: int = 0) -> dict | list:
+        """Execute a GET request with caching, rate limiting and retry on 429/5xx."""
         cached = self._cache.get(url)
         if cached:
             data, ts = cached
@@ -122,29 +130,35 @@ class RiotClient:
         return result
 
     async def get_account_by_riot_id(self, game_name: str, tag_line: str) -> dict:
+        """Look up a Riot account by game name and tag line."""
         url = f"{self.base_url}/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}"
         return await self._request(url)
 
     async def get_summoner_by_puuid(self, puuid: str) -> dict:
+        """Fetch summoner profile (level, icon) by PUUID."""
         url = f"{self.euw_url}/lol/summoner/v4/summoners/by-puuid/{puuid}"
         return await self._request(url)
 
     async def get_league_entries(self, puuid: str) -> list:
+        """Fetch ranked league entries (solo/duo and flex) for a summoner."""
         url = f"{self.euw_url}/lol/league/v4/entries/by-puuid/{puuid}"
         return await self._request(url)
 
     async def get_top_masteries(self, puuid: str, count: int = 10) -> list:
+        """Fetch the top champion masteries for a summoner."""
         url = f"{self.euw_url}/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}/top?count={count}"
         return await self._request(url)
 
     async def get_match_ids(
         self, puuid: str, queue: int = 420, count: int = 20, start_time: int | None = None
     ) -> list:
+        """Fetch recent match IDs for a summoner, filtered by queue."""
         url = f"{self.base_url}/lol/match/v5/matches/by-puuid/{puuid}/ids?queue={queue}&count={count}"
         if start_time is not None:
             url += f"&startTime={start_time}"
         return await self._request(url)
 
     async def get_match(self, match_id: str) -> dict:
+        """Fetch full match data by match ID."""
         url = f"{self.base_url}/lol/match/v5/matches/{match_id}"
         return await self._request(url)

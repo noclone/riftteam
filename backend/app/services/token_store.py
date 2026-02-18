@@ -10,6 +10,7 @@ TOKEN_TTL = timedelta(minutes=30)
 
 
 async def _cleanup(db: AsyncSession) -> None:
+    """Delete action tokens older than TOKEN_TTL."""
     cutoff = datetime.now(timezone.utc) - TOKEN_TTL
     await db.execute(delete(ActionToken).where(ActionToken.created_at < cutoff))
 
@@ -25,6 +26,7 @@ async def create_token(
     slug: str | None = None,
     team_name: str | None = None,
 ) -> ActionToken:
+    """Generate a new action token and persist it after cleaning up expired ones."""
     await _cleanup(db)
     token = uuid.uuid4().hex
     obj = ActionToken(
@@ -44,12 +46,14 @@ async def create_token(
 
 
 async def validate_token(db: AsyncSession, token: str) -> ActionToken | None:
+    """Return the token if it exists and hasn't expired, else None."""
     await _cleanup(db)
     result = await db.execute(select(ActionToken).where(ActionToken.token == token))
     return result.scalar_one_or_none()
 
 
 async def consume_token(db: AsyncSession, token: str, expected_action: str) -> ActionToken | None:
+    """Validate and delete a token in one step, returning it if valid."""
     await _cleanup(db)
     result = await db.execute(select(ActionToken).where(ActionToken.token == token))
     obj = result.scalar_one_or_none()

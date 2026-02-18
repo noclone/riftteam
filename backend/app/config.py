@@ -2,6 +2,8 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    """Backend configuration loaded from environment variables and .env file."""
+
     database_url: str = "postgresql+asyncpg://riftteam:riftteam@localhost:5433/riftteam"
     riot_api_key: str = ""
     app_url: str = "http://localhost:5173"

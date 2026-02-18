@@ -4,6 +4,7 @@ from app.services.role_detector import detect_roles, fetch_ranked_matches
 
 
 async def fetch_full_profile(game_name: str, tag_line: str, riot_client: RiotClient) -> dict:
+    """Fetch all Riot data for a player: ranks, roles, champions and masteries."""
     account = await riot_client.get_account_by_riot_id(game_name, tag_line)
     puuid = account["puuid"]
 

@@ -10,6 +10,8 @@ log = logging.getLogger("riftteam.register")
 
 
 class RegisterCog(commands.Cog):
+    """Slash command to create a new player profile via a token-based web flow."""
+
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 

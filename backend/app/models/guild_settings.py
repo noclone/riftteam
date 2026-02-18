@@ -5,6 +5,8 @@ from app.models.player import Base
 
 
 class GuildSettings(Base):
+    """Per-guild Discord bot configuration (announcement channel, etc.)."""
+
     __tablename__ = "guild_settings"
 
     guild_id: Mapped[str] = mapped_column(String(20), primary_key=True)

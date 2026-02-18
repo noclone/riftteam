@@ -9,6 +9,8 @@ from app.models.player import Base
 
 
 class Scrim(Base):
+    """A scheduled scrim request posted by a team captain."""
+
     __tablename__ = "scrims"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

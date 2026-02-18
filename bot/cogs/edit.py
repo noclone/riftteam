@@ -10,6 +10,8 @@ log = logging.getLogger("riftteam.edit")
 
 
 class EditCog(commands.Cog):
+    """Slash command to edit an existing player profile via a token-based web flow."""
+
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 

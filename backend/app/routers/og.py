@@ -23,6 +23,7 @@ _og_cache: dict[str, tuple[bytes, float]] = {}
 
 
 def _evict_cache() -> None:
+    """Remove expired and excess entries from the OG image cache."""
     now = time.time()
     expired = [k for k, (_, ts) in _og_cache.items() if now - ts >= CACHE_TTL]
     for k in expired:
@@ -34,10 +35,12 @@ def _evict_cache() -> None:
 
 
 def invalidate_og_cache(slug: str) -> None:
+    """Remove a specific player's OG image from cache."""
     _og_cache.pop(slug, None)
 
 
 def _is_crawler(user_agent: str) -> bool:
+    """Return True if the user-agent matches a known social media crawler."""
     ua_lower = user_agent.lower()
     return any(bot.lower() in ua_lower for bot in CRAWLER_AGENTS)
 
@@ -45,11 +48,13 @@ def _is_crawler(user_agent: str) -> bool:
 
 
 def _theme_color(tier: str | None) -> str:
+    """Return a CSS hex color string for a rank tier."""
     hex_int = RANK_COLORS.get((tier or "").upper(), 0x6B6B6B)
     return f"#{hex_int:06x}"
 
 
 def _build_og_html(player: Player) -> str:
+    """Build a minimal HTML page with OpenGraph meta tags for a player profile."""
     riot_id = f"{player.riot_game_name}#{player.riot_tag_line}"
     rank = format_rank(player.rank_solo_tier, player.rank_solo_division)
     role = ROLE_NAMES.get(player.primary_role or "", "")
@@ -98,6 +103,7 @@ def _build_og_html(player: Player) -> str:
 
 @router.get("/api/og/{slug}.png")
 async def og_image(slug: str, db: AsyncSession = Depends(get_db)):
+    """Generate and cache a 1200x630 PNG OG card for a player."""
     slug_clean = slug.removesuffix(".png") if slug.endswith(".png") else slug
     cached = _og_cache.get(slug_clean)
     if cached:
@@ -149,6 +155,7 @@ async def og_image(slug: str, db: AsyncSession = Depends(get_db)):
 
 @router.get("/p/{slug}")
 async def profile_page(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
+    """Serve OG meta tags to crawlers, redirect browsers to the SPA."""
     ua = request.headers.get("user-agent", "")
     if _is_crawler(ua):
         stmt = select(Player).options(selectinload(Player.champions)).where(Player.slug == slug)
@@ -162,6 +169,7 @@ async def profile_page(slug: str, request: Request, db: AsyncSession = Depends(g
 
 
 def _build_team_og_html(team: Team) -> str:
+    """Build a minimal HTML page with OpenGraph meta tags for a team profile."""
     title = f"{team.name} — Équipe LFP"
 
     desc_parts = []
@@ -210,6 +218,7 @@ def _build_team_og_html(team: Team) -> str:
 
 @router.get("/api/og/team/{slug}.png")
 async def team_og_image(slug: str, db: AsyncSession = Depends(get_db)):
+    """Generate and cache a 1200x630 PNG OG card for a team."""
     slug_clean = slug.removesuffix(".png") if slug.endswith(".png") else slug
     cache_key = f"team_{slug_clean}"
     cached = _og_cache.get(cache_key)
@@ -256,6 +265,7 @@ async def team_og_image(slug: str, db: AsyncSession = Depends(get_db)):
 
 @router.get("/t/{slug}")
 async def team_page(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
+    """Serve OG meta tags to crawlers, redirect browsers to the SPA."""
     ua = request.headers.get("user-agent", "")
     if _is_crawler(ua):
         stmt = (

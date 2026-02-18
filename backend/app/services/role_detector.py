@@ -13,11 +13,13 @@ MATCH_FETCH_LIMIT = 50
 
 
 def _current_season_start() -> int:
+    """Return the Unix timestamp for January 1st of the current year (UTC)."""
     now = datetime.now(timezone.utc)
     return int(datetime(now.year, 1, 1, tzinfo=timezone.utc).timestamp())
 
 
 def _find_participant(match_data: dict, puuid: str) -> dict | None:
+    """Extract the participant entry for a given PUUID from match data."""
     for participant in match_data["info"]["participants"]:
         if participant["puuid"] == puuid:
             return participant
@@ -25,6 +27,7 @@ def _find_participant(match_data: dict, puuid: str) -> dict | None:
 
 
 def _process_matches(matches: list[dict], puuid: str) -> tuple[dict[str, int], dict[int, dict]]:
+    """Aggregate role counts and per-champion stats from a list of matches."""
     role_counts: dict[str, int] = {
         "TOP": 0,
         "JUNGLE": 0,
@@ -64,6 +67,7 @@ def _process_matches(matches: list[dict], puuid: str) -> tuple[dict[str, int], d
 
 
 async def fetch_ranked_matches(puuid: str, riot_client: RiotClient) -> list[dict]:
+    """Fetch up to 50 matches, prioritising ranked solo then flex then normals."""
     match_ids = await riot_client.get_match_ids(
         puuid, queue=QUEUE_RANKED_SOLO, count=100, start_time=_current_season_start()
     )
@@ -91,6 +95,7 @@ async def fetch_ranked_matches(puuid: str, riot_client: RiotClient) -> list[dict
 async def detect_roles(
     puuid: str, matches: list[dict]
 ) -> tuple[str | None, str | None, dict[int, dict]]:
+    """Determine primary/secondary roles and champion stats from match history."""
     role_counts, champion_stats = _process_matches(matches, puuid)
 
     sorted_roles = sorted(role_counts.items(), key=lambda x: x[1], reverse=True)

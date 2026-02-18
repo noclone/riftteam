@@ -13,6 +13,8 @@ router = APIRouter(tags=["tokens"])
 
 
 class TokenCreateRequest(BaseModel):
+    """Request body to generate a new action token."""
+
     action: Literal["create", "edit", "team_create", "team_edit"]
     discord_user_id: str
     discord_username: str
@@ -23,11 +25,15 @@ class TokenCreateRequest(BaseModel):
 
 
 class TokenCreateResponse(BaseModel):
+    """Response with the generated token and its redirect URL."""
+
     token: str
     url: str
 
 
 class TokenValidateResponse(BaseModel):
+    """Token metadata returned when validating a token."""
+
     action: str
     discord_username: str
     game_name: str | None = None
@@ -42,6 +48,7 @@ async def create_token_endpoint(
     _: str = Depends(verify_bot_secret),
     db: AsyncSession = Depends(get_db),
 ):
+    """Generate an action token and return it with the frontend redirect URL."""
 
     data = await create_token(
         db,
@@ -68,6 +75,7 @@ async def create_token_endpoint(
 
 @router.get("/tokens/{token}/validate", response_model=TokenValidateResponse)
 async def validate_token_endpoint(token: str, db: AsyncSession = Depends(get_db)):
+    """Validate a token and return its metadata (action, user, etc.)."""
     data = await validate_token(db, token)
     if data is None:
         raise HTTPException(404, "Token invalide ou expiré")

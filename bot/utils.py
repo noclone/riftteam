@@ -6,6 +6,7 @@ from shared.constants import ACTIVITY_LABELS, AMBIANCE_LABELS, ROLE_NAMES
 
 
 def format_api_error(exc: Exception) -> str:
+    """Return a user-friendly French error message for API exceptions."""
     if isinstance(exc, aiohttp.ClientResponseError):
         if exc.status == 429:
             return "Trop de requêtes. Réessaie dans quelques minutes."
@@ -21,6 +22,7 @@ def format_api_error(exc: Exception) -> str:
 
 
 def parse_riot_id(riot_id: str) -> tuple[str, str] | None:
+    """Split 'Name#TAG' into (name, tag) or return None if malformed."""
     parts = riot_id.split("#", 1)
     if len(parts) != 2 or not parts[0] or not parts[1]:
         return None
@@ -28,10 +30,12 @@ def parse_riot_id(riot_id: str) -> tuple[str, str] | None:
 
 
 def encode_list_filters(role: str | None, min_rank: str | None, max_rank: str | None) -> str:
+    """Encode role/rank filters into a colon-separated string for custom IDs."""
     return f"{role or ''}:{min_rank or ''}:{max_rank or ''}"
 
 
 def decode_list_filters(encoded: str) -> tuple[str | None, str | None, str | None]:
+    """Decode a colon-separated filter string back into role/rank values."""
     parts = encoded.split(":")
     role = parts[0] or None if len(parts) > 0 else None
     min_rank = parts[1] or None if len(parts) > 1 else None
@@ -40,14 +44,17 @@ def decode_list_filters(encoded: str) -> tuple[str | None, str | None, str | Non
 
 
 def get_session(bot: commands.Bot) -> aiohttp.ClientSession:
+    """Return the shared aiohttp session from the bot instance."""
     return bot.http_session  # type: ignore[attr-defined]
 
 
 def get_api_secret(bot: commands.Bot) -> str:
+    """Return the bot API secret from the bot instance."""
     return bot.api_secret  # type: ignore[attr-defined]
 
 
 def build_info_parts(entity: dict) -> list[str]:
+    """Extract activity, ambiance and frequency info from a player or team dict."""
     parts: list[str] = []
     activities = entity.get("activities") or []
     if activities:
@@ -64,6 +71,7 @@ def build_info_parts(entity: dict) -> list[str]:
 
 
 def create_link_view(label: str, url: str) -> discord.ui.View:
+    """Create a View with a single link button."""
     view = discord.ui.View()
     view.add_item(discord.ui.Button(
         label=label,
@@ -76,6 +84,7 @@ def create_link_view(label: str, url: str) -> discord.ui.View:
 def build_nav_view(
     prefix: str, page: int, total: int, page_size: int, filters_encoded: str,
 ) -> discord.ui.View:
+    """Create a View with Previous/Next pagination buttons."""
     total_pages = max(1, (total + page_size - 1) // page_size)
     view = discord.ui.View(timeout=None)
     view.add_item(discord.ui.Button(
@@ -99,6 +108,7 @@ def build_no_results_msg(
     min_rank: str | None,
     max_rank: str | None,
 ) -> str:
+    """Build a 'no results found' message including active filter descriptions."""
     msg = f"Aucun {entity_name} trouv\u00e9"
     filters = []
     if role:

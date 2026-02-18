@@ -9,6 +9,8 @@ from app.models.player import Base
 
 
 class RankSnapshot(Base):
+    """Point-in-time record of a player's ranked tier, division and LP."""
+
     __tablename__ = "rank_snapshots"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -27,6 +29,8 @@ class RankSnapshot(Base):
 
 
 class ChampionSnapshot(Base):
+    """Point-in-time record of a player's champion pool, roles and stats."""
+
     __tablename__ = "champion_snapshots"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

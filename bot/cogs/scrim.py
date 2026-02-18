@@ -31,6 +31,7 @@ FORMAT_CHOICES = [
 
 
 def _parse_date_parts(date_str: str) -> tuple[int, int, int]:
+    """Parse a date string (JJ/MM or JJ/MM/AAAA) into (day, month, year)."""
     date_parts = re.split(r"[/\-.]", date_str)
     if len(date_parts) == 2:
         day, month = int(date_parts[0]), int(date_parts[1])
@@ -46,6 +47,7 @@ def _parse_date_parts(date_str: str) -> tuple[int, int, int]:
 
 
 def _parse_datetime(date_str: str, time_str: str) -> datetime:
+    """Parse user-provided date and time strings into a Paris-TZ datetime."""
     date_str = date_str.strip()
     time_str = time_str.strip()
 
@@ -73,6 +75,7 @@ def _parse_datetime(date_str: str, time_str: str) -> datetime:
 
 
 def _format_scrim_format(fmt: str | None, game_count: int | None, fearless: bool) -> str:
+    """Format scrim match format as a human-readable label."""
     if fmt:
         label = fmt
     elif game_count:
@@ -85,6 +88,7 @@ def _format_scrim_format(fmt: str | None, game_count: int | None, fearless: bool
 
 
 def _scrim_info_lines(scrim: dict) -> list[str]:
+    """Build info lines (date, time, format, elo range) for a scrim embed."""
     scheduled_at = scrim["scheduled_at"]
     if isinstance(scheduled_at, str):
         dt = datetime.fromisoformat(scheduled_at)
@@ -104,6 +108,7 @@ def _scrim_info_lines(scrim: dict) -> list[str]:
 
 
 def _build_scrim_embed(scrim: dict) -> discord.Embed:
+    """Build a rich Discord embed for a scrim posting."""
     team = scrim["team"]
     min_rank = scrim.get("min_rank")
     max_rank = scrim.get("max_rank")
@@ -132,6 +137,7 @@ def _build_scrim_embed(scrim: dict) -> discord.Embed:
 
 
 def _parse_date(date_str: str) -> str:
+    """Parse a date string and return an ISO-format date (YYYY-MM-DD)."""
     date_str = date_str.strip()
     day, month, year = _parse_date_parts(date_str)
     from datetime import date as date_type
@@ -143,6 +149,7 @@ def _parse_date(date_str: str) -> str:
 
 
 def _parse_hour(s: str) -> int:
+    """Parse an hour string (e.g. '20', '20h', '20:00') into an integer 0-23."""
     s = s.strip().lower().rstrip("h")
     m = re.match(r"^(\d{1,2})(?:[h:](\d{0,2}))?$", s)
     if not m:
@@ -158,10 +165,12 @@ def _encode_filters(
     scheduled_date: str | None, fmt: str | None,
     hour_min: int | None, hour_max: int | None,
 ) -> str:
+    """Encode scrim search filters into a colon-separated string for custom IDs."""
     return f"{min_rank or ''}:{max_rank or ''}:{scheduled_date or ''}:{fmt or ''}:{hour_min if hour_min is not None else ''}:{hour_max if hour_max is not None else ''}"
 
 
 def _decode_filters(encoded: str) -> tuple[str | None, str | None, str | None, str | None, int | None, int | None]:
+    """Decode a colon-separated filter string back into scrim search parameters."""
     parts = encoded.split(":")
     min_rank = parts[0] or None if len(parts) > 0 else None
     max_rank = parts[1] or None if len(parts) > 1 else None
@@ -173,6 +182,8 @@ def _decode_filters(encoded: str) -> tuple[str | None, str | None, str | None, s
 
 
 class ScrimCog(commands.Cog):
+    """Slash commands for posting, searching and cancelling scrims."""
+
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
@@ -390,6 +401,7 @@ class ScrimCog(commands.Cog):
         *,
         edit: bool = False,
     ) -> None:
+        """Fetch a page of scrims from the API and send/edit the response."""
         params: dict[str, str] = {
             "limit": str(PAGE_SIZE),
             "offset": str(page * PAGE_SIZE),

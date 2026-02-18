@@ -16,6 +16,7 @@ PAGE_SIZE = 5
 
 
 def _build_embed(players: list[dict], total: int, page: int, role: str | None) -> discord.Embed:
+    """Build a paginated embed listing LFT players."""
     title = "Joueurs LFT"
     if role:
         emoji = ROLE_EMOJIS.get(role, "")
@@ -50,6 +51,8 @@ def _build_embed(players: list[dict], total: int, page: int, role: str | None) -
 
 
 class LfpCog(commands.Cog):
+    """Slash command and pagination for browsing LFT players."""
+
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
@@ -63,6 +66,7 @@ class LfpCog(commands.Cog):
         *,
         edit: bool = False,
     ) -> None:
+        """Fetch a page of LFT players from the API and send/edit the response."""
         params: dict[str, str] = {
             "is_lft": "true",
             "limit": str(PAGE_SIZE),
