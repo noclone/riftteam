@@ -27,6 +27,3 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 
-# Lock files
-pnpm-lock.yaml
-uv.lock
