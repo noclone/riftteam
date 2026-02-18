@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -243,6 +244,24 @@ async def update_player(
     stmt = select(Player).options(selectinload(Player.champions)).where(Player.id == player.id)
     result = await db.execute(stmt)
     return result.scalar_one()
+
+
+@router.get("/players/{slug}/export")
+async def export_player(
+    slug: str,
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    token_data = await validate_token(db, token)
+    if token_data is None or token_data.action != "edit" or token_data.slug != slug:
+        raise HTTPException(403, "Token invalide ou expiré")
+
+    player = await _get_player_or_404(slug, db)
+    data = PlayerResponse.model_validate(player).model_dump(mode="json")
+    return JSONResponse(
+        content=data,
+        headers={"Content-Disposition": f'attachment; filename="riftteam-{slug}.json"'},
+    )
 
 
 @router.delete("/players/{slug}", status_code=204)

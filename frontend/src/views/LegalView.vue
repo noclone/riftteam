@@ -24,6 +24,13 @@ import { RouterLink } from 'vue-router'
           <p>Site : <a href="https://www.ovhcloud.com" class="text-indigo-400 hover:text-indigo-300" target="_blank" rel="noopener noreferrer">www.ovhcloud.com</a></p>
         </section>
 
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">Propriété intellectuelle</h2>
+          <p>RiftTeam n'est pas approuvé par Riot Games et ne reflète pas les vues ou opinions de Riot Games ou de quiconque impliqué officiellement dans la production ou la gestion des propriétés de Riot Games.</p>
+          <p class="mt-2">Riot Games et toutes les propriétés associées sont des marques déposées ou des marques de commerce enregistrées de Riot Games, Inc.</p>
+          <p class="mt-2">Les données de jeu sont utilisées conformément aux <a href="https://developer.riotgames.com/terms" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank" rel="noopener noreferrer">conditions d'utilisation de l'API Riot Games</a>.</p>
+        </section>
+
       </div>
     </div>
   </div>

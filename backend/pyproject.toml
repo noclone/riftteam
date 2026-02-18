@@ -20,3 +20,19 @@ test = ["pytest", "pytest-asyncio", "httpx", "aiosqlite"]
 
 [tool.uv.sources]
 riftteam-shared = { path = "../shared", editable = true }
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "shared"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.1",
+]

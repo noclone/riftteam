@@ -274,7 +274,8 @@ async function createProfile() {
               class="mt-1 accent-indigo-600"
             />
             <span class="text-sm text-gray-400">
-              En créant mon profil, j'accepte la
+              En créant mon profil, j'accepte les
+              <RouterLink to="/terms" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank">CGU</RouterLink> et la
               <RouterLink to="/privacy" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank">politique de confidentialité</RouterLink>.
             </span>
           </label>

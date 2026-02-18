@@ -51,6 +51,9 @@ export const api = {
       method: 'DELETE',
     })
   },
+  exportPlayer(slug: string, token: string) {
+    return `${API_BASE}/players/${encodeURIComponent(slug)}/export?token=${encodeURIComponent(token)}`
+  },
   refreshPlayer(slug: string) {
     return request<PlayerResponse>(`/players/${encodeURIComponent(slug)}/refresh`, { method: 'POST' })
   },
