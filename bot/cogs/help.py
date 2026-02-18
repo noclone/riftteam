@@ -50,6 +50,15 @@ class HelpCog(commands.Cog):
         )
 
         embed.add_field(
+            name="Scrims",
+            value=(
+                "`/rt-scrim-post <date> <heure> <format> [fearless] [min_rank] [max_rank]` — Poste un scrim\n"
+                "`/rt-scrim-search [min_rank] [max_rank]` — Cherche des scrims disponibles"
+            ),
+            inline=False,
+        )
+
+        embed.add_field(
             name="Admin",
             value="`/rt-setup` — Configure le channel d'annonces (manage_guild)",
             inline=False,
