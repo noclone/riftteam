@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      ICON_CACHE_DIR: /data/icon_cache
+    volumes:
+      - icon_cache:/data/icon_cache
+    networks:
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  bot:
+    build:
+      context: .
+      dockerfile: bot/Dockerfile
+    env_file: .env
+    environment:
+      API_URL: http://backend:8000
+    networks:
+      - internal
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    networks:
+      - internal
+    depends_on:
+      - backend
+
+networks:
+  internal:
+
+volumes:
+  pgdata:
+  icon_cache:

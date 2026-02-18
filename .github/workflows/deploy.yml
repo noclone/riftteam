@@ -1,0 +1,63 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - run: pnpm run build
+        working-directory: frontend
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Generate .env on VPS
+        run: |
+          cat > /tmp/riftteam.env << 'ENVEOF'
+          DATABASE_URL=postgresql+asyncpg://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@postgres:5432/${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          RIOT_API_KEY=${{ secrets.RIOT_API_KEY }}
+          APP_URL=${{ secrets.APP_URL }}
+          API_URL=${{ secrets.API_URL }}
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}
+          BOT_API_SECRET=${{ secrets.BOT_API_SECRET }}
+          ENVEOF
+          scp /tmp/riftteam.env ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/riftteam/.env
+
+      - name: Rsync to VPS
+        run: |
+          rsync -az --delete \
+            --exclude .git \
+            --exclude node_modules \
+            --exclude .venv \
+            --exclude __pycache__ \
+            --exclude .env \
+            ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/riftteam/
+
+      - name: Build and deploy
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "
+            cd /opt/riftteam &&
+            docker compose -f docker-compose.prod.yml build &&
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans &&
+            docker image prune -f
+          "

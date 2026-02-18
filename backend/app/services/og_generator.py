@@ -1,4 +1,5 @@
 import asyncio
+import os
 from io import BytesIO
 from pathlib import Path
 
@@ -17,7 +18,7 @@ ROLE_LABELS_FULL: dict[str, str] = {
 }
 
 CARD_W, CARD_H = 1200, 630
-ICON_DIR = Path("/tmp/riftteam_icons")
+ICON_DIR = Path(os.environ.get("ICON_CACHE_DIR", "/tmp/riftteam_icons"))
 DDRAGON_VERSION: str | None = None
 
 
