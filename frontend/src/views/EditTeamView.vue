@@ -385,8 +385,23 @@ async function deleteTeam() {
         <p v-if="success" class="mt-3 text-green-400 text-sm text-center">{{ success }}</p>
         <p v-if="error" class="mt-3 text-red-400 text-sm text-center">{{ error }}</p>
 
+        <!-- Data export -->
+        <div class="mt-10 border border-gray-700 rounded-xl p-5">
+          <h3 class="text-gray-300 font-semibold mb-2">Données de l'équipe</h3>
+          <p class="text-sm text-gray-400 mb-4">
+            Exporte toutes les données de ton équipe au format JSON (droit à la portabilité RGPD).
+          </p>
+          <a
+            :href="api.exportTeam(team.slug, token)"
+            download
+            class="inline-block bg-gray-700 hover:bg-gray-600 text-white text-sm px-4 py-2.5 rounded-lg transition"
+          >
+            Exporter les données
+          </a>
+        </div>
+
         <!-- Danger zone -->
-        <div class="mt-10 border border-red-900/50 rounded-xl p-5">
+        <div class="mt-6 border border-red-900/50 rounded-xl p-5">
           <h3 class="text-red-400 font-semibold mb-2">Zone danger</h3>
           <p class="text-sm text-gray-400 mb-4">
             Cette action est irréversible. Ton équipe et toutes ses données seront supprimées.

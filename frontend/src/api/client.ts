@@ -76,6 +76,9 @@ export const api = {
       body: JSON.stringify(data),
     })
   },
+  exportTeam(slug: string, token: string) {
+    return `${API_BASE}/teams/${encodeURIComponent(slug)}/export?token=${encodeURIComponent(token)}`
+  },
   deleteTeam(slug: string, token: string) {
     return request<void>(`/teams/${encodeURIComponent(slug)}?token=${encodeURIComponent(token)}`, {
       method: 'DELETE',

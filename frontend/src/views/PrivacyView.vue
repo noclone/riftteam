@@ -37,17 +37,25 @@ import { RouterLink } from 'vue-router'
           </ul>
 
           <h3 class="text-lg font-medium text-white mb-2">Données déclaratives (fournies par le joueur)</h3>
-          <ul class="list-disc list-inside space-y-1 text-gray-400">
+          <ul class="list-disc list-inside space-y-1 mb-4 text-gray-400">
             <li>Description libre</li>
             <li>Activités recherchées (scrims, tournois, LAN, etc.)</li>
             <li>Ambiance souhaitée (tryhard, for fun)</li>
             <li>Fréquence de jeu</li>
           </ul>
+
+          <h3 class="text-lg font-medium text-white mb-2">Données d'équipe (si vous êtes capitaine)</h3>
+          <ul class="list-disc list-inside space-y-1 text-gray-400">
+            <li>Nom de l'équipe</li>
+            <li>Description de l'équipe</li>
+            <li>Rôles recherchés, range d'elo, objectifs, ambiance, fréquence</li>
+            <li>Composition du roster (liens vers les profils des membres)</li>
+          </ul>
         </section>
 
         <section>
           <h2 class="text-xl font-semibold text-white mb-3">Base légale</h2>
-          <p>Le traitement de vos données repose sur votre <strong class="text-white">consentement explicite</strong>, recueilli lors de la création de votre profil (article 6.1.a du RGPD).</p>
+          <p>Le traitement de vos données repose sur votre <strong class="text-white">consentement explicite</strong>, recueilli lors de la création de votre profil ou de votre équipe (article 6.1.a du RGPD).</p>
         </section>
 
         <section>

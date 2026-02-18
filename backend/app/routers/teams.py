@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -198,6 +199,24 @@ async def update_team(
     stmt = select(Team).options(selectinload(Team.members).selectinload(TeamMember.player)).where(Team.id == team.id)
     result = await db.execute(stmt)
     return result.scalar_one()
+
+
+@router.get("/teams/{slug}/export")
+async def export_team(
+    slug: str,
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    token_data = await validate_token(db, token)
+    if token_data is None or token_data.action != "team_edit" or token_data.slug != slug:
+        raise HTTPException(403, "Token invalide ou expiré")
+
+    team = await _get_team_or_404(slug, db)
+    data = TeamResponse.model_validate(team).model_dump(mode="json")
+    return JSONResponse(
+        content=data,
+        headers={"Content-Disposition": f'attachment; filename="riftteam-team-{slug}.json"'},
+    )
 
 
 @router.delete("/teams/{slug}", status_code=204)
