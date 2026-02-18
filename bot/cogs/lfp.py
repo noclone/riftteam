@@ -24,6 +24,8 @@ APP_URL = os.getenv("APP_URL", "http://localhost:5173")
 
 log = logging.getLogger("riftteam.lfp")
 
+PAGE_SIZE = 5
+
 ROLE_CHOICES = [
     app_commands.Choice(name="Top", value="TOP"),
     app_commands.Choice(name="Jungle", value="JUNGLE"),
@@ -51,9 +53,147 @@ def _rank_short(tier: str | None, division: str | None, lp: int | None = None) -
     return base
 
 
+def _encode_filters(role: str | None, min_rank: str | None, max_rank: str | None) -> str:
+    return f"{role or ''}:{min_rank or ''}:{max_rank or ''}"
+
+
+def _decode_filters(encoded: str) -> tuple[str | None, str | None, str | None]:
+    parts = encoded.split(":")
+    role = parts[0] or None if len(parts) > 0 else None
+    min_rank = parts[1] or None if len(parts) > 1 else None
+    max_rank = parts[2] or None if len(parts) > 2 else None
+    return role, min_rank, max_rank
+
+
+def _build_embed(players: list[dict], total: int, page: int, role: str | None) -> discord.Embed:
+    title = "Joueurs LFT"
+    if role:
+        emoji = ROLE_EMOJIS.get(role, "")
+        name = ROLE_NAMES.get(role, role)
+        title += f" — {emoji} {name}"
+
+    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    embed = discord.Embed(title=title, color=0x5865F2)
+
+    for p in players:
+        riot_id = f"{p['riot_game_name']}#{p['riot_tag_line']}"
+        rank = _rank_short(p.get("rank_solo_tier"), p.get("rank_solo_division"), p.get("rank_solo_lp"))
+        primary = p.get("primary_role")
+        role_emoji = ROLE_EMOJIS.get(primary, "") if primary else ""
+        role_name = ROLE_NAMES.get(primary, "") if primary else ""
+        link = f"{APP_URL}/p/{p['slug']}"
+
+        lines = [f"{rank} · {role_emoji} {role_name}"]
+
+        info_parts: list[str] = []
+        activities = p.get("activities") or []
+        if activities:
+            info_parts.append(", ".join(ACTIVITY_LABELS.get(a, a) for a in activities))
+        ambiance_val = p.get("ambiance")
+        if ambiance_val:
+            info_parts.append(AMBIANCE_LABELS.get(ambiance_val, ambiance_val))
+        freq_min = p.get("frequency_min")
+        freq_max = p.get("frequency_max")
+        if freq_min is not None and freq_max is not None:
+            info_parts.append(f"{freq_min}-{freq_max}x / semaine")
+        if info_parts:
+            lines.append(" · ".join(info_parts))
+
+        lines.append(f"[Voir le profil]({link})")
+
+        embed.add_field(name=riot_id, value="\n".join(lines), inline=False)
+
+    embed.set_footer(text=f"Page {page + 1}/{total_pages} · {total} joueurs LFT au total")
+    return embed
+
+
+def _build_nav_view(page: int, total: int, role: str | None, min_rank: str | None, max_rank: str | None) -> discord.ui.View:
+    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    view = discord.ui.View(timeout=None)
+    filters = _encode_filters(role, min_rank, max_rank)
+    view.add_item(discord.ui.Button(
+        label="◀ Précédent",
+        style=discord.ButtonStyle.secondary,
+        custom_id=f"rt_lfp_page:{page - 1}:{filters}",
+        disabled=page <= 0,
+    ))
+    view.add_item(discord.ui.Button(
+        label="Suivant ▶",
+        style=discord.ButtonStyle.secondary,
+        custom_id=f"rt_lfp_page:{page + 1}:{filters}",
+        disabled=page >= total_pages - 1,
+    ))
+    return view
+
+
 class LfpCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+
+    async def _fetch_and_respond(
+        self,
+        interaction: discord.Interaction,
+        page: int,
+        role: str | None,
+        min_rank: str | None,
+        max_rank: str | None,
+        *,
+        edit: bool = False,
+    ) -> None:
+        params: dict[str, str] = {
+            "is_lft": "true",
+            "limit": str(PAGE_SIZE),
+            "offset": str(page * PAGE_SIZE),
+        }
+        if role:
+            params["role"] = role
+        if min_rank:
+            params["min_rank"] = min_rank
+        if max_rank:
+            params["max_rank"] = max_rank
+
+        session = self.bot.http_session  # type: ignore[attr-defined]
+        try:
+            async with session.get("/api/players", params=params) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+        except Exception:
+            log.exception("Failed to fetch LFP players")
+            msg = "Erreur lors de la récupération des joueurs. Réessaie plus tard."
+            if edit:
+                await interaction.edit_original_response(content=msg, embed=None, view=None)
+            else:
+                await interaction.followup.send(msg, ephemeral=True)
+            return
+
+        players = data.get("players", [])
+        total = data.get("total", len(players))
+
+        if not players:
+            msg = "Aucun joueur LFT trouvé"
+            filters = []
+            if role:
+                filters.append(f"rôle **{ROLE_NAMES.get(role, role)}**")
+            if min_rank:
+                filters.append(f"rang min **{min_rank.capitalize()}**")
+            if max_rank:
+                filters.append(f"rang max **{max_rank.capitalize()}**")
+            if filters:
+                msg += " pour " + ", ".join(filters)
+            msg += "."
+            if edit:
+                await interaction.edit_original_response(content=msg, embed=None, view=None)
+            else:
+                await interaction.followup.send(msg, ephemeral=True)
+            return
+
+        embed = _build_embed(players, total, page, role)
+        view = _build_nav_view(page, total, role, min_rank, max_rank)
+
+        if edit:
+            await interaction.edit_original_response(embed=embed, view=view)
+        else:
+            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
     @app_commands.command(name="rt-lfp", description="Joueurs qui cherchent une équipe")
     @app_commands.describe(
@@ -70,85 +210,28 @@ class LfpCog(commands.Cog):
         max_rank: app_commands.Choice[str] | None = None,
     ) -> None:
         await interaction.response.defer(ephemeral=True)
+        await self._fetch_and_respond(
+            interaction,
+            page=0,
+            role=role.value if role else None,
+            min_rank=min_rank.value if min_rank else None,
+            max_rank=max_rank.value if max_rank else None,
+        )
 
-        params: dict[str, str] = {"is_lft": "true", "limit": "5"}
-        if role:
-            params["role"] = role.value
-        if min_rank:
-            params["min_rank"] = min_rank.value
-        if max_rank:
-            params["max_rank"] = max_rank.value
-
-        session = self.bot.http_session  # type: ignore[attr-defined]
-        try:
-            async with session.get("/api/players", params=params) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-        except Exception:
-            log.exception("Failed to fetch LFP players")
-            await interaction.followup.send(
-                "Erreur lors de la récupération des joueurs. Réessaie plus tard.",
-                ephemeral=True,
-            )
+    @commands.Cog.listener()
+    async def on_interaction(self, interaction: discord.Interaction) -> None:
+        if interaction.type != discord.InteractionType.component:
+            return
+        custom_id = interaction.data.get("custom_id", "")  # type: ignore[union-attr]
+        if not custom_id.startswith("rt_lfp_page:"):
             return
 
-        players = data.get("players", [])
-        if not players:
-            msg = "Aucun joueur LFT trouvé"
-            filters = []
-            if role:
-                filters.append(f"rôle **{role.name}**")
-            if min_rank:
-                filters.append(f"rang min **{min_rank.name}**")
-            if max_rank:
-                filters.append(f"rang max **{max_rank.name}**")
-            if filters:
-                msg += " pour " + ", ".join(filters)
-            msg += "."
-            await interaction.followup.send(msg)
-            return
+        parts = custom_id[len("rt_lfp_page:"):].split(":", 1)
+        page = int(parts[0])
+        role, min_rank, max_rank = _decode_filters(parts[1]) if len(parts) > 1 else (None, None, None)
 
-        title = "Joueurs LFT"
-        if role:
-            emoji = ROLE_EMOJIS.get(role.value, "")
-            title += f" — {emoji} {role.name}"
-
-        embed = discord.Embed(title=title, color=0x5865F2)
-
-        for p in players:
-            riot_id = f"{p['riot_game_name']}#{p['riot_tag_line']}"
-            rank = _rank_short(p.get("rank_solo_tier"), p.get("rank_solo_division"), p.get("rank_solo_lp"))
-            primary = p.get("primary_role")
-            role_emoji = ROLE_EMOJIS.get(primary, "") if primary else ""
-            role_name = ROLE_NAMES.get(primary, "") if primary else ""
-            link = f"{APP_URL}/p/{p['slug']}"
-
-            lines = [f"{rank} · {role_emoji} {role_name}"]
-
-            info_parts: list[str] = []
-            activities = p.get("activities") or []
-            if activities:
-                info_parts.append(", ".join(ACTIVITY_LABELS.get(a, a) for a in activities))
-            ambiance_val = p.get("ambiance")
-            if ambiance_val:
-                info_parts.append(AMBIANCE_LABELS.get(ambiance_val, ambiance_val))
-            freq_min = p.get("frequency_min")
-            freq_max = p.get("frequency_max")
-            if freq_min is not None and freq_max is not None:
-                info_parts.append(f"{freq_min}-{freq_max}x / semaine")
-            if info_parts:
-                lines.append(" · ".join(info_parts))
-
-            lines.append(f"[Voir le profil]({link})")
-
-            embed.add_field(
-                name=riot_id,
-                value="\n".join(lines),
-                inline=False,
-            )
-
-        embed.set_footer(text=f"RiftTeam · {data.get('total', len(players))} joueurs LFT au total")
-        await interaction.followup.send(embed=embed)
+        await interaction.response.defer(ephemeral=True)
+        await self._fetch_and_respond(interaction, page, role, min_rank, max_rank, edit=True)
 
 
 async def setup(bot: commands.Bot) -> None:
