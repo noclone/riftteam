@@ -126,7 +126,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-900 text-white p-4 sm:p-8">
+  <div class="bg-gray-900 text-white p-4 sm:p-8">
     <div class="max-w-4xl mx-auto">
       <h1 class="text-3xl font-bold mb-6">Joueurs LFT</h1>
 

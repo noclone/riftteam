@@ -21,6 +21,7 @@ const wantedRoles = ref<string[]>([])
 const minRank = ref('')
 const maxRank = ref('')
 const isLfp = ref(true)
+const consentAccepted = ref(false)
 
 const ACTIVITY_OPTIONS = [
   { value: 'SCRIMS', label: 'Scrims' },
@@ -123,7 +124,7 @@ async function createTeam() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4 sm:p-8">
+  <div class="bg-gray-900 text-white flex items-center justify-center p-4 sm:p-8 flex-1">
     <div class="w-full max-w-lg">
       <h1 class="text-3xl font-bold mb-8 text-center">Créer mon équipe</h1>
 
@@ -286,9 +287,21 @@ async function createTeam() {
           </div>
         </div>
 
+        <label class="flex items-start gap-2 mt-6 cursor-pointer">
+          <input
+            v-model="consentAccepted"
+            type="checkbox"
+            class="mt-1 accent-indigo-600"
+          />
+          <span class="text-sm text-gray-400">
+            En créant mon équipe, j'accepte la
+            <RouterLink to="/privacy" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank">politique de confidentialité</RouterLink>.
+          </span>
+        </label>
+
         <button
-          :disabled="loading"
-          class="w-full mt-6 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition"
+          :disabled="loading || !consentAccepted"
+          class="w-full mt-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition"
           @click="createTeam"
         >
           {{ loading ? 'Création...' : 'Créer mon équipe' }}

@@ -82,6 +82,10 @@ export const api = {
     const qs = params ? '?' + new URLSearchParams(params).toString() : ''
     return request<TeamListResponse>(`/teams${qs}`)
   },
+  checkTeamName(name: string, excludeSlug?: string) {
+    const qs = excludeSlug ? `?exclude_slug=${encodeURIComponent(excludeSlug)}` : ''
+    return request<{ available: boolean }>(`/teams/check-name/${encodeURIComponent(name)}${qs}`)
+  },
 }
 
 export interface TokenInfo {
@@ -225,6 +229,7 @@ export interface TeamCreateRequest {
 }
 
 export interface TeamUpdateRequest {
+  name?: string
   description?: string
   activities?: string[]
   ambiance?: string

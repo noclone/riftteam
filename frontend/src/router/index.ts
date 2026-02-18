@@ -43,6 +43,16 @@ const router = createRouter({
       name: 'team-edit',
       component: () => import('@/views/EditTeamView.vue'),
     },
+    {
+      path: '/privacy',
+      name: 'privacy',
+      component: () => import('@/views/PrivacyView.vue'),
+    },
+    {
+      path: '/legal',
+      name: 'legal',
+      component: () => import('@/views/LegalView.vue'),
+    },
   ],
 })
 

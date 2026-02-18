@@ -22,6 +22,7 @@ const activities = ref<string[]>([])
 const ambiance = ref('')
 const frequencyMin = ref(2)
 const frequencyMax = ref(3)
+const consentAccepted = ref(false)
 
 const ACTIVITY_OPTIONS = [
   { value: 'SCRIMS', label: 'Scrims' },
@@ -122,7 +123,7 @@ async function createProfile() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4 sm:p-8">
+  <div class="bg-gray-900 text-white flex items-center justify-center p-4 sm:p-8 flex-1">
     <div class="w-full max-w-lg">
       <h1 class="text-3xl font-bold mb-8 text-center">Créer mon profil</h1>
 
@@ -266,7 +267,18 @@ async function createProfile() {
               />
             </div>
           </div>
-          <div class="flex gap-3 mt-6">
+          <label class="flex items-start gap-2 mt-6 cursor-pointer">
+            <input
+              v-model="consentAccepted"
+              type="checkbox"
+              class="mt-1 accent-indigo-600"
+            />
+            <span class="text-sm text-gray-400">
+              En créant mon profil, j'accepte la
+              <RouterLink to="/privacy" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank">politique de confidentialité</RouterLink>.
+            </span>
+          </label>
+          <div class="flex gap-3 mt-4">
             <button
               class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2.5 rounded-lg transition"
               @click="step = 1"
@@ -274,7 +286,7 @@ async function createProfile() {
               Retour
             </button>
             <button
-              :disabled="loading"
+              :disabled="loading || !consentAccepted"
               class="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition"
               @click="createProfile"
             >

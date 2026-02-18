@@ -115,7 +115,7 @@ async function deleteProfile() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4 sm:p-8">
+  <div class="bg-gray-900 text-white flex items-center justify-center p-4 sm:p-8 flex-1">
     <div class="w-full max-w-lg">
       <h1 class="text-3xl font-bold mb-8 text-center">Modifier mon profil</h1>
 

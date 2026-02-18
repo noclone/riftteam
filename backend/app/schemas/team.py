@@ -38,6 +38,7 @@ class TeamCreate(BaseModel):
 
 
 class TeamUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=50)
     description: str | None = Field(default=None, max_length=500)
     activities: list[str] | None = None
     ambiance: str | None = None

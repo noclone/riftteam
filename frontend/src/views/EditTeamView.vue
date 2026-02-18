@@ -15,6 +15,11 @@ const team = ref<TeamResponse | null>(null)
 const token = ref('')
 const showDeleteConfirm = ref(false)
 
+const teamName = ref('')
+const nameError = ref('')
+const nameChecking = ref(false)
+let nameCheckTimeout: ReturnType<typeof setTimeout> | null = null
+
 const description = ref('')
 const activities = ref<string[]>([])
 const ambiance = ref('')
@@ -24,6 +29,34 @@ const wantedRoles = ref<string[]>([])
 const minRank = ref('')
 const maxRank = ref('')
 const isLfp = ref(true)
+
+function onNameInput() {
+  nameError.value = ''
+  if (nameCheckTimeout) clearTimeout(nameCheckTimeout)
+  const name = teamName.value.trim()
+  if (!name || name.length < 2) {
+    nameError.value = name.length > 0 ? 'Le nom doit faire au moins 2 caractères.' : ''
+    return
+  }
+  if (name.length > 50) {
+    nameError.value = 'Le nom ne doit pas dépasser 50 caractères.'
+    return
+  }
+  if (name === team.value?.name) return
+  nameChecking.value = true
+  nameCheckTimeout = setTimeout(async () => {
+    try {
+      const { available } = await api.checkTeamName(name, team.value?.slug)
+      if (teamName.value.trim() === name) {
+        nameError.value = available ? '' : 'Ce nom est déjà pris.'
+      }
+    } catch {
+      nameError.value = ''
+    } finally {
+      nameChecking.value = false
+    }
+  }, 400)
+}
 
 const ACTIVITY_OPTIONS = [
   { value: 'SCRIMS', label: 'Scrims' },
@@ -71,6 +104,10 @@ function toggleRole(value: string) {
 }
 
 function validationError(): string {
+  const name = teamName.value.trim()
+  if (!name || name.length < 2) return 'Le nom doit faire au moins 2 caractères.'
+  if (name.length > 50) return 'Le nom ne doit pas dépasser 50 caractères.'
+  if (nameError.value) return nameError.value
   if (frequencyMin.value > frequencyMax.value) return 'La fréquence min doit être inférieure ou égale à la fréquence max.'
   if (description.value.length > DESC_MAX) return `La description ne doit pas dépasser ${DESC_MAX} caractères.`
   if (minRank.value && maxRank.value && RANK_ORDER.indexOf(minRank.value) > RANK_ORDER.indexOf(maxRank.value)) return 'Le rang minimum doit être inférieur ou égal au rang maximum.'
@@ -92,6 +129,7 @@ onMounted(async () => {
       return
     }
     team.value = await api.getTeam(tokenInfo.value.slug, t)
+    teamName.value = team.value.name
     description.value = team.value.description ?? ''
     activities.value = team.value.activities ?? []
     ambiance.value = team.value.ambiance ?? ''
@@ -116,7 +154,9 @@ async function saveTeam() {
   error.value = ''
   success.value = ''
   try {
-    await api.updateTeam(team.value.slug, {
+    const nameChanged = teamName.value.trim() !== team.value.name
+    const updated = await api.updateTeam(team.value.slug, {
+      name: nameChanged ? teamName.value.trim() : undefined,
       description: description.value || undefined,
       activities: activities.value,
       ambiance: ambiance.value || undefined,
@@ -127,6 +167,7 @@ async function saveTeam() {
       max_rank: maxRank.value || undefined,
       is_lfp: isLfp.value,
     }, token.value)
+    team.value = updated
     success.value = 'Équipe mise à jour !'
   } catch (e: any) {
     error.value = e.message
@@ -151,7 +192,7 @@ async function deleteTeam() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4 sm:p-8">
+  <div class="bg-gray-900 text-white flex items-center justify-center p-4 sm:p-8 flex-1">
     <div class="w-full max-w-lg">
       <h1 class="text-3xl font-bold mb-8 text-center">Modifier mon équipe</h1>
 
@@ -168,17 +209,27 @@ async function deleteTeam() {
       </div>
 
       <div v-else-if="team">
-        <div class="bg-gray-800 rounded-xl p-4 mb-6 flex items-center justify-between">
-          <div>
-            <p class="text-lg font-bold">{{ team.name }}</p>
+        <div class="bg-gray-800 rounded-xl p-4 mb-6">
+          <div class="flex items-center justify-between mb-3">
             <p class="text-sm text-gray-400">{{ team.members.length }}/5 membres</p>
+            <RouterLink
+              :to="`/t/${team.slug}`"
+              class="text-sm text-indigo-400 hover:text-indigo-300 transition"
+            >
+              Voir l'équipe
+            </RouterLink>
           </div>
-          <RouterLink
-            :to="`/t/${team.slug}`"
-            class="text-sm text-indigo-400 hover:text-indigo-300 transition"
-          >
-            Voir l'équipe
-          </RouterLink>
+          <label class="block text-sm text-gray-400 mb-1">Nom de l'équipe</label>
+          <input
+            v-model="teamName"
+            type="text"
+            maxlength="50"
+            class="w-full bg-gray-700 border rounded-lg px-3 py-2 text-white focus:outline-none transition"
+            :class="nameError ? 'border-red-500 focus:border-red-500' : 'border-gray-600 focus:border-indigo-500'"
+            @input="onNameInput"
+          />
+          <p v-if="nameChecking" class="text-xs text-gray-500 mt-1">Vérification...</p>
+          <p v-else-if="nameError" class="text-xs text-red-400 mt-1">{{ nameError }}</p>
         </div>
 
         <div class="space-y-5">
@@ -324,7 +375,7 @@ async function deleteTeam() {
         </div>
 
         <button
-          :disabled="saving"
+          :disabled="saving || nameChecking || !!nameError"
           class="w-full mt-6 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition"
           @click="saveTeam"
         >

@@ -181,7 +181,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-900 text-white p-4 sm:p-8">
+  <div class="bg-gray-900 text-white p-4 sm:p-8">
     <div v-if="loading" class="text-center text-gray-400 mt-20">Chargement...</div>
     <div v-else-if="error" class="text-center text-red-400 mt-20">{{ error }}</div>
     <div v-else-if="player" class="max-w-2xl mx-auto">

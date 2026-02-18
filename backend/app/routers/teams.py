@@ -151,6 +151,20 @@ async def list_teams(
     return TeamListResponse(teams=teams, total=total)
 
 
+@router.get("/teams/check-name/{name}")
+async def check_team_name(
+    name: str,
+    exclude_slug: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    slug = Team.make_slug(name)
+    stmt = select(Team.id).where(Team.slug == slug)
+    if exclude_slug:
+        stmt = stmt.where(Team.slug != exclude_slug)
+    result = await db.execute(stmt)
+    return {"available": result.scalar_one_or_none() is None}
+
+
 @router.patch("/teams/{slug}", response_model=TeamResponse)
 async def update_team(
     slug: str,
@@ -164,6 +178,18 @@ async def update_team(
 
     team = await _get_team_or_404(slug, db)
     update_data = body.model_dump(exclude_unset=True)
+
+    new_name = update_data.pop("name", None)
+    if new_name is not None and new_name != team.name:
+        new_slug = Team.make_slug(new_name)
+        if new_slug != team.slug:
+            conflict = await db.execute(select(Team.id).where(Team.slug == new_slug))
+            if conflict.scalar_one_or_none():
+                raise HTTPException(409, "Une équipe avec ce nom existe déjà")
+            team.slug = new_slug
+            token_data.slug = new_slug
+        team.name = new_name
+
     for field, value in update_data.items():
         setattr(team, field, value)
     team.updated_at = datetime.now(timezone.utc)
