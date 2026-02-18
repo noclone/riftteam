@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Header, HTTPException, Request
 
 from app.config import settings
 from app.schemas.player import RiotCheckResponse
@@ -8,7 +8,9 @@ router = APIRouter(tags=["riot"])
 
 
 @router.get("/riot/check/{name}/{tag}", response_model=RiotCheckResponse)
-async def check_riot_id(name: str, tag: str, request: Request):
+async def check_riot_id(name: str, tag: str, request: Request, x_bot_secret: str = Header(...)):
+    if x_bot_secret != settings.bot_api_secret:
+        raise HTTPException(403, "Invalid bot secret")
     client = getattr(request.app.state, "riot_client", None)
     if not client:
         if not settings.riot_api_key:

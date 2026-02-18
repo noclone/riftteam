@@ -4,6 +4,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from utils import format_api_error
+
 log = logging.getLogger("riftteam.register")
 
 
@@ -38,11 +40,11 @@ class RegisterCog(commands.Cog):
                         f"Tu as déjà un profil (**{existing_name}**). Utilise `/rt-profil-edit` pour le modifier.",
                     )
                     return
-        except Exception:
+        except discord.NotFound:
+            raise
+        except Exception as exc:
             log.exception("Failed to check existing profile by discord ID")
-            await interaction.followup.send(
-                "Erreur lors de la vérification. Réessaie plus tard.",
-            )
+            await interaction.followup.send(format_api_error(exc))
             return
 
         try:
@@ -55,9 +57,9 @@ class RegisterCog(commands.Cog):
                 resp.raise_for_status()
         except discord.NotFound:
             raise
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to check Riot ID %s", riot_id)
-            await interaction.followup.send("Erreur lors de la vérification du Riot ID.")
+            await interaction.followup.send(format_api_error(exc))
             return
 
         try:
@@ -69,9 +71,9 @@ class RegisterCog(commands.Cog):
                             f"Un profil existe déjà pour **{riot_id}** et est déjà attribué.",
                         )
                         return
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to check existing player %s", slug)
-            await interaction.followup.send("Erreur lors de la vérification.")
+            await interaction.followup.send(format_api_error(exc))
             return
 
         try:
@@ -90,9 +92,9 @@ class RegisterCog(commands.Cog):
                 resp.raise_for_status()
                 data = await resp.json()
                 url = data["url"]
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to create token")
-            await interaction.followup.send("Erreur lors de la création du lien.")
+            await interaction.followup.send(format_api_error(exc))
             return
 
         view = discord.ui.View()

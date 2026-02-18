@@ -358,17 +358,7 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Actions -->
-        <div class="px-6 sm:px-8 pb-6 flex flex-wrap gap-3">
-          <button
-            @click="refreshProfile"
-            :disabled="refreshing"
-            class="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-sm px-4 py-2 rounded-lg transition"
-          >
-            {{ refreshing ? 'Actualisation...' : 'Rafraîchir les données Riot' }}
-          </button>
-        </div>
-        <p v-if="refreshError" class="px-6 sm:px-8 pb-4 text-red-400 text-sm">{{ refreshError }}</p>
+        <div class="pb-6"></div>
       </div>
     </div>
   </div>

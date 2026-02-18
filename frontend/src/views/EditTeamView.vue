@@ -55,6 +55,9 @@ const RANK_OPTIONS = [
   { value: 'CHALLENGER', label: 'Challenger' },
 ]
 
+const DESC_MAX = 500
+const RANK_ORDER = RANK_OPTIONS.map(o => o.value).filter(v => v !== '')
+
 function toggleActivity(value: string) {
   const idx = activities.value.indexOf(value)
   if (idx >= 0) activities.value.splice(idx, 1)
@@ -65,6 +68,13 @@ function toggleRole(value: string) {
   const idx = wantedRoles.value.indexOf(value)
   if (idx >= 0) wantedRoles.value.splice(idx, 1)
   else wantedRoles.value.push(value)
+}
+
+function validationError(): string {
+  if (frequencyMin.value > frequencyMax.value) return 'La fréquence min doit être inférieure ou égale à la fréquence max.'
+  if (description.value.length > DESC_MAX) return `La description ne doit pas dépasser ${DESC_MAX} caractères.`
+  if (minRank.value && maxRank.value && RANK_ORDER.indexOf(minRank.value) > RANK_ORDER.indexOf(maxRank.value)) return 'Le rang minimum doit être inférieur ou égal au rang maximum.'
+  return ''
 }
 
 onMounted(async () => {
@@ -100,6 +110,8 @@ onMounted(async () => {
 
 async function saveTeam() {
   if (!team.value) return
+  const ve = validationError()
+  if (ve) { error.value = ve; return }
   saving.value = true
   error.value = ''
   success.value = ''

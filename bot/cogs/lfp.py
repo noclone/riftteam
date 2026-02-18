@@ -6,6 +6,8 @@ from discord import app_commands
 from discord.ext import commands
 
 from shared.constants import RANK_ORDER, ROLE_EMOJIS, ROLE_NAMES
+from shared.format import format_rank
+from utils import format_api_error
 
 ACTIVITY_LABELS: dict[str, str] = {
     "SCRIMS": "Scrims",
@@ -40,19 +42,6 @@ RANK_CHOICES = [
 ]
 
 
-def _rank_short(tier: str | None, division: str | None, lp: int | None = None) -> str:
-    if not tier:
-        return "Unranked"
-    t = tier.capitalize()
-    if division and tier not in ("MASTER", "GRANDMASTER", "CHALLENGER"):
-        base = f"{t} {division}"
-    else:
-        base = t
-    if lp is not None:
-        return f"{base} ({lp} LP)"
-    return base
-
-
 def _encode_filters(role: str | None, min_rank: str | None, max_rank: str | None) -> str:
     return f"{role or ''}:{min_rank or ''}:{max_rank or ''}"
 
@@ -77,7 +66,7 @@ def _build_embed(players: list[dict], total: int, page: int, role: str | None) -
 
     for p in players:
         riot_id = f"{p['riot_game_name']}#{p['riot_tag_line']}"
-        rank = _rank_short(p.get("rank_solo_tier"), p.get("rank_solo_division"), p.get("rank_solo_lp"))
+        rank = format_rank(p.get("rank_solo_tier"), p.get("rank_solo_division"), p.get("rank_solo_lp"))
         primary = p.get("primary_role")
         role_emoji = ROLE_EMOJIS.get(primary, "") if primary else ""
         role_name = ROLE_NAMES.get(primary, "") if primary else ""
@@ -157,9 +146,9 @@ class LfpCog(commands.Cog):
             async with session.get("/api/players", params=params) as resp:
                 resp.raise_for_status()
                 data = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch LFP players")
-            msg = "Erreur lors de la récupération des joueurs. Réessaie plus tard."
+            msg = format_api_error(exc)
             if edit:
                 await interaction.edit_original_response(content=msg, embed=None, view=None)
             else:

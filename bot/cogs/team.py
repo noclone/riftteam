@@ -6,6 +6,8 @@ from discord import app_commands
 from discord.ext import commands
 
 from shared.constants import RANK_COLORS, RANK_ORDER, ROLE_EMOJIS, ROLE_NAMES
+from shared.format import format_rank
+from utils import format_api_error
 
 APP_URL = os.getenv("APP_URL", "http://localhost:5173")
 
@@ -52,15 +54,6 @@ RANK_CHOICES = [
 ]
 
 
-def _rank_short(tier: str | None, division: str | None) -> str:
-    if not tier:
-        return "Unranked"
-    t = tier.capitalize()
-    if division and tier not in ("MASTER", "GRANDMASTER", "CHALLENGER"):
-        return f"{t} {division}"
-    return t
-
-
 class TeamCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -82,9 +75,9 @@ class TeamCog(commands.Cog):
                         f"Utilise `/rt-team-edit` pour la modifier.",
                     )
                     return
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to check existing team")
-            await interaction.followup.send("Erreur lors de la vérification.")
+            await interaction.followup.send(format_api_error(exc))
             return
 
         try:
@@ -102,9 +95,9 @@ class TeamCog(commands.Cog):
                 resp.raise_for_status()
                 data = await resp.json()
                 url = data["url"]
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to create team token")
-            await interaction.followup.send("Erreur lors de la création du lien.")
+            await interaction.followup.send(format_api_error(exc))
             return
 
         view = discord.ui.View()
@@ -135,9 +128,9 @@ class TeamCog(commands.Cog):
                     return
                 resp.raise_for_status()
                 team = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch team by captain")
-            await interaction.followup.send("Erreur lors de la récupération de l'équipe.")
+            await interaction.followup.send(format_api_error(exc))
             return
 
         try:
@@ -155,9 +148,9 @@ class TeamCog(commands.Cog):
                 resp.raise_for_status()
                 data = await resp.json()
                 url = data["url"]
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to create team edit token")
-            await interaction.followup.send("Erreur lors de la création du lien.")
+            await interaction.followup.send(format_api_error(exc))
             return
 
         view = discord.ui.View()
@@ -203,9 +196,9 @@ class TeamCog(commands.Cog):
                     return
                 resp.raise_for_status()
                 team = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch team")
-            await interaction.followup.send("Erreur lors de la récupération de l'équipe.")
+            await interaction.followup.send(format_api_error(exc))
             return
 
         name, tag = parts
@@ -237,9 +230,9 @@ class TeamCog(commands.Cog):
                 resp.raise_for_status()
         except discord.NotFound:
             raise
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to add member")
-            await interaction.followup.send("Erreur lors de l'ajout du membre.")
+            await interaction.followup.send(format_api_error(exc))
             return
 
         await interaction.followup.send(
@@ -269,9 +262,9 @@ class TeamCog(commands.Cog):
                     return
                 resp.raise_for_status()
                 team = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch team")
-            await interaction.followup.send("Erreur lors de la récupération de l'équipe.")
+            await interaction.followup.send(format_api_error(exc))
             return
 
         name, tag = parts
@@ -289,9 +282,9 @@ class TeamCog(commands.Cog):
                 resp.raise_for_status()
         except discord.NotFound:
             raise
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to remove member")
-            await interaction.followup.send("Erreur lors du retrait du membre.")
+            await interaction.followup.send(format_api_error(exc))
             return
 
         await interaction.followup.send(f"**{riot_id}** retiré du roster.")
@@ -323,9 +316,9 @@ class TeamCog(commands.Cog):
             async with session.get("/api/teams", params=params) as resp:
                 resp.raise_for_status()
                 data = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch LFT teams")
-            msg = "Erreur lors de la récupération des équipes. Réessaie plus tard."
+            msg = format_api_error(exc)
             if edit:
                 await interaction.edit_original_response(content=msg, embed=None, view=None)
             else:

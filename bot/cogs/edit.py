@@ -4,6 +4,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from utils import format_api_error
+
 log = logging.getLogger("riftteam.edit")
 
 
@@ -27,9 +29,9 @@ class EditCog(commands.Cog):
                     return
                 resp.raise_for_status()
                 player = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch player by discord ID")
-            await interaction.followup.send("Erreur lors de la récupération du profil.")
+            await interaction.followup.send(format_api_error(exc))
             return
 
         try:
@@ -47,9 +49,9 @@ class EditCog(commands.Cog):
                 resp.raise_for_status()
                 data = await resp.json()
                 url = data["url"]
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to create edit token")
-            await interaction.followup.send("Erreur lors de la création du lien.")
+            await interaction.followup.send(format_api_error(exc))
             return
 
         riot_id = f"{player['riot_game_name']}#{player['riot_tag_line']}"

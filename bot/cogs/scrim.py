@@ -9,6 +9,8 @@ from discord.ext import commands
 from zoneinfo import ZoneInfo
 
 from shared.constants import RANK_COLORS, RANK_ORDER, ROLE_EMOJIS, ROLE_NAMES
+from shared.format import format_rank, format_rank_range
+from utils import format_api_error
 
 APP_URL = os.getenv("APP_URL", "http://localhost:5173")
 
@@ -70,43 +72,6 @@ def _parse_datetime(date_str: str, time_str: str) -> datetime:
     return dt
 
 
-def _rank_short(tier: str | None, division: str | None) -> str:
-    if not tier:
-        return "Unranked"
-    t = tier.capitalize()
-    if division and tier.upper() not in ("MASTER", "GRANDMASTER", "CHALLENGER"):
-        return f"{t} {division}"
-    return t
-
-
-RANK_SHORT: dict[str, str] = {
-    "IRON": "Iron",
-    "BRONZE": "Bronze",
-    "SILVER": "Silver",
-    "GOLD": "Gold",
-    "PLATINUM": "Plat",
-    "EMERALD": "Emerald",
-    "DIAMOND": "Diam",
-    "MASTER": "Master",
-    "GRANDMASTER": "GM",
-    "CHALLENGER": "Chall",
-}
-
-
-def _rank_label(rank: str | None) -> str:
-    if not rank:
-        return ""
-    return RANK_SHORT.get(rank.upper(), rank.capitalize())
-
-
-def _format_rank_range(min_rank: str | None, max_rank: str | None) -> str:
-    lo = _rank_label(min_rank)
-    hi = _rank_label(max_rank)
-    if lo and hi:
-        return f"{lo} → {hi}" if lo != hi else lo
-    return lo or hi or "Tous elos"
-
-
 def _format_scrim_format(fmt: str | None, game_count: int | None, fearless: bool) -> str:
     if fmt:
         label = fmt
@@ -129,7 +94,7 @@ def _scrim_info_lines(scrim: dict) -> list[str]:
     date_str = dt_paris.strftime("%d/%m")
     hour_str = f"{dt_paris.hour}h{dt_paris.minute:02d}" if dt_paris.minute else f"{dt_paris.hour}h"
     fmt_str = _format_scrim_format(scrim.get("format"), scrim.get("game_count"), scrim.get("fearless", False))
-    elo_str = _format_rank_range(scrim.get("min_rank"), scrim.get("max_rank"))
+    elo_str = format_rank_range(scrim.get("min_rank"), scrim.get("max_rank"), abbreviated=True)
     return [
         f"\U0001f5d3\ufe0f {date_str}",
         f"\u23f0 {hour_str}",
@@ -158,7 +123,7 @@ def _build_scrim_embed(scrim: dict) -> discord.Embed:
         for m in members:
             p = m["player"]
             role_emoji = ROLE_EMOJIS.get(m["role"], "")
-            rank = _rank_short(p.get("rank_solo_tier"), p.get("rank_solo_division"))
+            rank = format_rank(p.get("rank_solo_tier"), p.get("rank_solo_division"))
             roster_lines.append(f"{role_emoji} **{p['riot_game_name']}**#{p['riot_tag_line']} — {rank}")
         embed.add_field(name=f"Roster ({len(members)}/5)", value="\n".join(roster_lines), inline=False)
 
@@ -256,9 +221,9 @@ class ScrimCog(commands.Cog):
                     return
                 resp.raise_for_status()
                 team = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch team")
-            await interaction.followup.send("Erreur lors de la récupération de ton équipe.", ephemeral=True)
+            await interaction.followup.send(format_api_error(exc), ephemeral=True)
             return
 
         try:
@@ -306,9 +271,9 @@ class ScrimCog(commands.Cog):
                 scrim = await resp.json()
         except discord.NotFound:
             raise
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to create scrim")
-            await interaction.followup.send("Erreur lors de la création du scrim.", ephemeral=True)
+            await interaction.followup.send(format_api_error(exc), ephemeral=True)
             return
 
         embed = _build_scrim_embed(scrim)
@@ -327,6 +292,48 @@ class ScrimCog(commands.Cog):
 
         await interaction.channel.send(embed=embed, view=view)  # type: ignore[union-attr]
         await interaction.delete_original_response()
+
+    @app_commands.command(name="rt-scrim-cancel", description="Annule le scrim actif de ton équipe")
+    async def rt_scrim_cancel(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+
+        session = self.bot.http_session  # type: ignore[attr-defined]
+        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+
+        try:
+            async with session.get(f"/api/teams/by-captain/{interaction.user.id}") as resp:
+                if resp.status == 404:
+                    await interaction.followup.send(
+                        "Tu n'as pas d'équipe.", ephemeral=True,
+                    )
+                    return
+                resp.raise_for_status()
+                team = await resp.json()
+        except Exception as exc:
+            log.exception("Failed to fetch team")
+            await interaction.followup.send(format_api_error(exc), ephemeral=True)
+            return
+
+        try:
+            async with session.delete(
+                f"/api/scrims/by-team/{team['slug']}",
+                headers={"X-Bot-Secret": api_secret},
+            ) as resp:
+                if resp.status == 404:
+                    await interaction.followup.send("Équipe introuvable.", ephemeral=True)
+                    return
+                resp.raise_for_status()
+                data = await resp.json()
+        except Exception as exc:
+            log.exception("Failed to cancel scrims")
+            await interaction.followup.send(format_api_error(exc), ephemeral=True)
+            return
+
+        cancelled = data.get("cancelled", 0)
+        if cancelled == 0:
+            await interaction.followup.send("Aucun scrim actif à annuler.", ephemeral=True)
+        else:
+            await interaction.followup.send(f"Scrim annulé pour **{team['name']}**.", ephemeral=True)
 
     @app_commands.command(name="rt-scrim-search", description="Cherche des scrims disponibles")
     @app_commands.describe(
@@ -415,9 +422,9 @@ class ScrimCog(commands.Cog):
             async with session.get("/api/scrims", params=params) as resp:
                 resp.raise_for_status()
                 data = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch scrims")
-            msg = "Erreur lors de la récupération des scrims. Réessaie plus tard."
+            msg = format_api_error(exc)
             if edit:
                 await interaction.edit_original_response(content=msg, embed=None, view=None)
             else:

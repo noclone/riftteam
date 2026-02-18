@@ -84,7 +84,7 @@ class RiotClient:
             for k in oldest[: len(self._cache) - CACHE_MAX_SIZE]:
                 del self._cache[k]
 
-    async def _request(self, url: str) -> dict | list:
+    async def _request(self, url: str, _retry: int = 0) -> dict | list:
         cached = self._cache.get(url)
         if cached:
             data, ts = cached
@@ -92,19 +92,30 @@ class RiotClient:
                 return data
 
         await self._wait_for_rate_limit()
-        async with aiohttp.ClientSession() as session:
-            headers = {"X-Riot-Token": self.api_key}
-            async with session.get(url, headers=headers) as resp:
-                if resp.status == 429:
-                    retry_after = int(resp.headers.get("Retry-After", 5))
-                    await asyncio.sleep(retry_after)
-                    return await self._request(url)
-                if resp.status == 404:
-                    raise RiotAPIError(404, "Not found")
-                if resp.status >= 400:
-                    text = await resp.text()
-                    raise RiotAPIError(resp.status, text)
-                result = await resp.json()
+        try:
+            async with aiohttp.ClientSession() as session:
+                headers = {"X-Riot-Token": self.api_key}
+                async with session.get(
+                    url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
+                ) as resp:
+                    if resp.status == 429:
+                        retry_after = int(resp.headers.get("Retry-After", 5))
+                        await asyncio.sleep(retry_after)
+                        return await self._request(url, _retry)
+                    if resp.status == 404:
+                        raise RiotAPIError(404, "Not found")
+                    if resp.status in (500, 502, 503) and _retry < 3:
+                        await asyncio.sleep(1 * (2 ** _retry))
+                        return await self._request(url, _retry + 1)
+                    if resp.status >= 400:
+                        text = await resp.text()
+                        raise RiotAPIError(resp.status, text)
+                    result = await resp.json()
+        except (asyncio.TimeoutError, aiohttp.ClientError):
+            if _retry < 3:
+                await asyncio.sleep(1 * (2 ** _retry))
+                return await self._request(url, _retry + 1)
+            raise
 
         self._cache[url] = (result, time.monotonic())
         self._evict_cache()

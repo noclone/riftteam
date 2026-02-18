@@ -1,9 +1,11 @@
 from typing import Literal
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.database import get_db
 from app.services.token_store import create_token, validate_token
 
 router = APIRouter(tags=["tokens"])
@@ -37,11 +39,13 @@ class TokenValidateResponse(BaseModel):
 async def create_token_endpoint(
     body: TokenCreateRequest,
     x_bot_secret: str = Header(...),
+    db: AsyncSession = Depends(get_db),
 ):
     if x_bot_secret != settings.bot_api_secret:
         raise HTTPException(403, "Invalid bot secret")
 
-    data = create_token(
+    data = await create_token(
+        db,
         action=body.action,
         discord_user_id=body.discord_user_id,
         discord_username=body.discord_username,
@@ -64,8 +68,8 @@ async def create_token_endpoint(
 
 
 @router.get("/tokens/{token}/validate", response_model=TokenValidateResponse)
-async def validate_token_endpoint(token: str):
-    data = validate_token(token)
+async def validate_token_endpoint(token: str, db: AsyncSession = Depends(get_db)):
+    data = await validate_token(db, token)
     if data is None:
         raise HTTPException(404, "Token invalide ou expiré")
 

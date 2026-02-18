@@ -50,7 +50,7 @@ async def create_team(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    token_data = consume_token(token, "team_create")
+    token_data = await consume_token(db, token, "team_create")
     if token_data is None:
         raise HTTPException(403, "Token invalide ou expiré")
 
@@ -94,7 +94,13 @@ async def create_team(
 
 
 @router.get("/teams/by-captain/{discord_user_id}", response_model=TeamResponse)
-async def get_team_by_captain(discord_user_id: str, db: AsyncSession = Depends(get_db)):
+async def get_team_by_captain(
+    discord_user_id: str,
+    x_bot_secret: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+):
+    if x_bot_secret != settings.bot_api_secret:
+        raise HTTPException(403, "Invalid bot secret")
     stmt = (
         select(Team)
         .options(selectinload(Team.members).selectinload(TeamMember.player))
@@ -116,7 +122,7 @@ async def get_team(
     team = await _get_team_or_404(slug, db)
 
     if not team.is_lfp:
-        token_data = validate_token(token) if token else None
+        token_data = (await validate_token(db, token)) if token else None
         if not token_data or token_data.action != "team_edit" or token_data.slug != slug:
             raise HTTPException(404, "Team not found")
 
@@ -170,7 +176,7 @@ async def update_team(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    token_data = validate_token(token)
+    token_data = await validate_token(db, token)
     if token_data is None or token_data.action != "team_edit" or token_data.slug != slug:
         raise HTTPException(403, "Token invalide ou expiré")
 
@@ -192,7 +198,7 @@ async def delete_team(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    token_data = validate_token(token)
+    token_data = await validate_token(db, token)
     if token_data is None or token_data.action != "team_edit" or token_data.slug != slug:
         raise HTTPException(403, "Token invalide ou expiré")
 

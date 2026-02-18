@@ -12,12 +12,25 @@ from app.models.player import Player
 from app.models.team import Team, TeamMember
 from app.services.og_generator import generate_og_image, generate_team_og_image
 from shared.constants import RANK_COLORS, ROLE_NAMES
+from shared.format import format_rank, format_win_rate
 
 router = APIRouter()
 
 CRAWLER_AGENTS = ("Discordbot", "Twitterbot", "facebookexternalhit", "Slackbot", "TelegramBot")
 CACHE_TTL = 6 * 3600
+CACHE_MAX_SIZE = 500
 _og_cache: dict[str, tuple[bytes, float]] = {}
+
+
+def _evict_cache() -> None:
+    now = time.time()
+    expired = [k for k, (_, ts) in _og_cache.items() if now - ts >= CACHE_TTL]
+    for k in expired:
+        del _og_cache[k]
+    if len(_og_cache) > CACHE_MAX_SIZE:
+        by_age = sorted(_og_cache.items(), key=lambda item: item[1][1])
+        for k, _ in by_age[: len(_og_cache) - CACHE_MAX_SIZE]:
+            del _og_cache[k]
 
 
 def invalidate_og_cache(slug: str) -> None:
@@ -29,21 +42,6 @@ def _is_crawler(user_agent: str) -> bool:
     return any(bot.lower() in ua_lower for bot in CRAWLER_AGENTS)
 
 
-def _format_rank(tier: str | None, division: str | None) -> str:
-    if not tier:
-        return "Unranked"
-    label = tier.capitalize()
-    if division and tier.upper() not in ("MASTER", "GRANDMASTER", "CHALLENGER"):
-        label += f" {division}"
-    return label
-
-
-def _win_rate_str(wins: int | None, losses: int | None) -> str:
-    w = wins or 0
-    l = losses or 0
-    if w + l == 0:
-        return ""
-    return f"{round(w / (w + l) * 100)}% WR"
 
 
 def _theme_color(tier: str | None) -> str:
@@ -53,7 +51,7 @@ def _theme_color(tier: str | None) -> str:
 
 def _build_og_html(player: Player) -> str:
     riot_id = f"{player.riot_game_name}#{player.riot_tag_line}"
-    rank = _format_rank(player.rank_solo_tier, player.rank_solo_division)
+    rank = format_rank(player.rank_solo_tier, player.rank_solo_division)
     role = ROLE_NAMES.get(player.primary_role or "", "")
 
     title = f"{riot_id} — {rank}"
@@ -61,7 +59,7 @@ def _build_og_html(player: Player) -> str:
         title += f" {role}"
 
     desc_parts = []
-    wr = _win_rate_str(player.rank_solo_wins, player.rank_solo_losses)
+    wr = format_win_rate(player.rank_solo_wins, player.rank_solo_losses)
     if wr:
         desc_parts.append(wr)
     top_champs = sorted(player.champions, key=lambda c: c.games_played, reverse=True)[:3]
@@ -143,6 +141,7 @@ async def og_image(slug: str, db: AsyncSession = Depends(get_db)):
     ]
 
     png_bytes = await generate_og_image(player_dict, champs)
+    _evict_cache()
     _og_cache[slug_clean] = (png_bytes, time.time())
 
     return Response(content=png_bytes, media_type="image/png",
@@ -249,6 +248,7 @@ async def team_og_image(slug: str, db: AsyncSession = Depends(get_db)):
     }
 
     png_bytes = await generate_team_og_image(team_dict)
+    _evict_cache()
     _og_cache[cache_key] = (png_bytes, time.time())
 
     return Response(content=png_bytes, media_type="image/png",

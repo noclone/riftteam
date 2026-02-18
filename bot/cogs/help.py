@@ -53,7 +53,8 @@ class HelpCog(commands.Cog):
             name="\u2694\ufe0f Scrims",
             value=(
                 "`/rt-scrim-post` — Poste un scrim\n"
-                "`/rt-scrim-search` — Cherche des scrims (date, heure, format, rang)"
+                "`/rt-scrim-search` — Cherche des scrims (date, heure, format, rang)\n"
+                "`/rt-scrim-cancel` — Annule le scrim actif de ton équipe"
             ),
             inline=False,
         )

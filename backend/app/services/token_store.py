@@ -1,49 +1,33 @@
 import uuid
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Literal
+from datetime import datetime, timedelta, timezone
 
-TOKEN_TTL_SECONDS = 30 * 60
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.action_token import ActionToken
 
-@dataclass
-class TokenData:
-    token: str
-    action: Literal["create", "edit", "team_create", "team_edit"]
-    discord_user_id: str
-    discord_username: str
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    game_name: str | None = None
-    tag_line: str | None = None
-    slug: str | None = None
-    team_name: str | None = None
+TOKEN_TTL = timedelta(minutes=30)
 
 
-_store: dict[str, TokenData] = {}
+async def _cleanup(db: AsyncSession) -> None:
+    cutoff = datetime.now(timezone.utc) - TOKEN_TTL
+    await db.execute(delete(ActionToken).where(ActionToken.created_at < cutoff))
 
 
-def _cleanup() -> None:
-    now = datetime.now(timezone.utc)
-    expired = [
-        k for k, v in _store.items()
-        if (now - v.created_at).total_seconds() > TOKEN_TTL_SECONDS
-    ]
-    for k in expired:
-        del _store[k]
-
-
-def create_token(
-    action: Literal["create", "edit", "team_create", "team_edit"],
+async def create_token(
+    db: AsyncSession,
+    *,
+    action: str,
     discord_user_id: str,
     discord_username: str,
     game_name: str | None = None,
     tag_line: str | None = None,
     slug: str | None = None,
     team_name: str | None = None,
-) -> TokenData:
-    _cleanup()
+) -> ActionToken:
+    await _cleanup(db)
     token = uuid.uuid4().hex
-    data = TokenData(
+    obj = ActionToken(
         token=token,
         action=action,
         discord_user_id=discord_user_id,
@@ -52,20 +36,25 @@ def create_token(
         tag_line=tag_line,
         slug=slug,
         team_name=team_name,
+        created_at=datetime.now(timezone.utc),
     )
-    _store[token] = data
-    return data
+    db.add(obj)
+    await db.flush()
+    return obj
 
 
-def validate_token(token: str) -> TokenData | None:
-    _cleanup()
-    return _store.get(token)
+async def validate_token(db: AsyncSession, token: str) -> ActionToken | None:
+    await _cleanup(db)
+    result = await db.execute(select(ActionToken).where(ActionToken.token == token))
+    return result.scalar_one_or_none()
 
 
-def consume_token(token: str, expected_action: str) -> TokenData | None:
-    _cleanup()
-    data = _store.get(token)
-    if data is None or data.action != expected_action:
+async def consume_token(db: AsyncSession, token: str, expected_action: str) -> ActionToken | None:
+    await _cleanup(db)
+    result = await db.execute(select(ActionToken).where(ActionToken.token == token))
+    obj = result.scalar_one_or_none()
+    if obj is None or obj.action != expected_action:
         return None
-    del _store[token]
-    return data
+    await db.delete(obj)
+    await db.flush()
+    return obj

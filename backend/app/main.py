@@ -7,7 +7,8 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import players, riot, scrims, teams, tokens
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.routers import guild_settings, players, riot, scrims, teams, tokens
 from app.routers.og import router as og_router
 from app.services.sync import deactivate_inactive, sync_active_ranks
 from shared.riot_client import RiotClient
@@ -39,6 +40,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="RiftTeam API", version="0.1.0", lifespan=lifespan)
 
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.app_url],
@@ -52,12 +54,21 @@ app.include_router(teams.router, prefix="/api")
 app.include_router(scrims.router, prefix="/api")
 app.include_router(riot.router, prefix="/api")
 app.include_router(tokens.router, prefix="/api")
+app.include_router(guild_settings.router, prefix="/api")
 app.include_router(og_router)
 
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok"}
+    from sqlalchemy import text
+    from app.database import async_session
+    try:
+        async with async_session() as session:
+            await session.execute(text("SELECT 1"))
+        return {"status": "ok", "database": "ok"}
+    except Exception:
+        logger.exception("Health check DB failure")
+        return {"status": "degraded", "database": "error"}
 
 
 @app.post("/api/maintenance/deactivate-inactive")

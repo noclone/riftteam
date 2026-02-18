@@ -4,6 +4,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from utils import format_api_error
+
 log = logging.getLogger("riftteam.reactivate")
 
 
@@ -37,9 +39,9 @@ class ReactivateCog(commands.Cog):
                     if r.status == 200:
                         return "Ton profil LFT a été réactivé !"
                     return "Impossible de réactiver ton profil."
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to reactivate player")
-            return "Erreur lors de la réactivation de ton profil."
+            return format_api_error(exc)
 
     async def _reactivate_team(self, user_id: str) -> str:
         session = self.bot.http_session  # type: ignore[attr-defined]
@@ -59,9 +61,9 @@ class ReactivateCog(commands.Cog):
                     if r.status == 200:
                         return f"Ton équipe **{team['name']}** a été réactivée !"
                     return "Impossible de réactiver ton équipe."
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to reactivate team")
-            return "Erreur lors de la réactivation de ton équipe."
+            return format_api_error(exc)
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction) -> None:

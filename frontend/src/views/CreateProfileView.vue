@@ -31,6 +31,8 @@ const ACTIVITY_OPTIONS = [
   { value: 'CLASH', label: 'Clash' },
 ]
 
+const DESC_MAX = 500
+
 function toggleActivity(value: string) {
   const idx = activities.value.indexOf(value)
   if (idx >= 0) {
@@ -38,6 +40,12 @@ function toggleActivity(value: string) {
   } else {
     activities.value.push(value)
   }
+}
+
+function validationError(): string {
+  if (frequencyMin.value > frequencyMax.value) return 'La fréquence min doit être inférieure ou égale à la fréquence max.'
+  if (description.value.length > DESC_MAX) return `La description ne doit pas dépasser ${DESC_MAX} caractères.`
+  return ''
 }
 
 function profileIconUrl(iconId: number | null): string {
@@ -90,6 +98,8 @@ onMounted(async () => {
 
 async function createProfile() {
   if (!riotData.value) return
+  const ve = validationError()
+  if (ve) { error.value = ve; return }
   loading.value = true
   error.value = ''
   try {

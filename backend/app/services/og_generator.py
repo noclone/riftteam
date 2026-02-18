@@ -6,6 +6,7 @@ import aiohttp
 from PIL import Image, ImageDraw, ImageFont
 
 from shared.constants import RANK_COLORS
+from shared.format import format_rank, format_win_rate
 
 ROLE_LABELS_FULL: dict[str, str] = {
     "TOP": "Toplaner",
@@ -103,21 +104,6 @@ def _paste_icon(dst: Image.Image, src: Image.Image, pos: tuple[int, int], size: 
         dst.paste(src, pos)
 
 
-def _format_rank(tier: str | None, division: str | None) -> str:
-    if not tier:
-        return "Unranked"
-    label = tier.capitalize()
-    if division and tier.upper() not in ("MASTER", "GRANDMASTER", "CHALLENGER"):
-        label += f" {division}"
-    return label
-
-
-def _win_rate(wins: int | None, losses: int | None) -> str:
-    w = wins or 0
-    l = losses or 0
-    if w + l == 0:
-        return ""
-    return f"{round(w / (w + l) * 100)}% WR"
 
 
 async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
@@ -164,14 +150,14 @@ async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
             _paste_icon(img, rank_img, (left_x, rank_y), rank_icon_size)
 
     text_x = left_x + rank_icon_size + 20
-    rank_text = _format_rank(rank_tier, player.get("rank_solo_division"))
+    rank_text = format_rank(rank_tier, player.get("rank_solo_division"))
     draw.text((text_x, rank_y + 20), rank_text, fill=rank_color, font=font_rank)
 
     lp = player.get("rank_solo_lp")
     if lp is not None and rank_tier:
         draw.text((text_x, rank_y + 85), f"{lp} LP", fill=(180, 180, 200), font=font_lp)
 
-    wr = _win_rate(player.get("rank_solo_wins"), player.get("rank_solo_losses"))
+    wr = format_win_rate(player.get("rank_solo_wins"), player.get("rank_solo_losses"))
     if wr:
         draw.text((text_x, rank_y + 140), wr, fill=(160, 160, 180), font=font_lp)
 

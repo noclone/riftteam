@@ -54,7 +54,7 @@ async def create_player(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    token_data = consume_token(token, "create")
+    token_data = await consume_token(db, token, "create")
     if token_data is None:
         raise HTTPException(403, "Token invalide ou expiré")
 
@@ -214,7 +214,13 @@ async def _lazy_rank_refresh(player_id, slug: str, riot_client: RiotClient) -> N
 
 
 @router.get("/players/by-discord/{discord_user_id}", response_model=PlayerResponse)
-async def get_player_by_discord(discord_user_id: str, db: AsyncSession = Depends(get_db)):
+async def get_player_by_discord(
+    discord_user_id: str,
+    x_bot_secret: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+):
+    if x_bot_secret != settings.bot_api_secret:
+        raise HTTPException(403, "Invalid bot secret")
     stmt = select(Player).options(selectinload(Player.champions)).where(Player.discord_user_id == discord_user_id)
     result = await db.execute(stmt)
     player = result.scalar_one_or_none()
@@ -291,7 +297,7 @@ async def update_player(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    token_data = validate_token(token)
+    token_data = await validate_token(db, token)
     if token_data is None or token_data.action != "edit" or token_data.slug != slug:
         raise HTTPException(403, "Token invalide ou expiré")
 
@@ -313,7 +319,7 @@ async def delete_player(
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    token_data = validate_token(token)
+    token_data = await validate_token(db, token)
     if token_data is None or token_data.action != "edit" or token_data.slug != slug:
         raise HTTPException(403, "Token invalide ou expiré")
 
@@ -323,7 +329,14 @@ async def delete_player(
 
 
 @router.post("/players/{slug}/refresh", response_model=PlayerResponse)
-async def refresh_player(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
+async def refresh_player(
+    slug: str,
+    request: Request,
+    x_bot_secret: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+):
+    if x_bot_secret != settings.bot_api_secret:
+        raise HTTPException(403, "Invalid bot secret")
     player = await _get_player_or_404(slug, db)
 
     if player.last_riot_sync:

@@ -34,7 +34,10 @@ class RiftBot(commands.Bot):
         self._deactivation_task: asyncio.Task | None = None
 
     async def setup_hook(self) -> None:
-        self.http_session = aiohttp.ClientSession(base_url=API_URL)
+        self.http_session = aiohttp.ClientSession(
+            base_url=API_URL,
+            headers={"X-Bot-Secret": BOT_API_SECRET},
+        )
         for cog in COGS:
             await self.load_extension(cog)
             log.info("Loaded %s", cog)

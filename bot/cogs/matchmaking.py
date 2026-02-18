@@ -7,6 +7,8 @@ from discord.ext import commands
 
 from cogs.profile import build_profile_embed
 from shared.constants import RANK_COLORS, RANK_ORDER, ROLE_EMOJIS, ROLE_NAMES
+from shared.format import format_rank, format_rank_range
+from utils import format_api_error
 
 APP_URL = os.getenv("APP_URL", "http://localhost:5173")
 
@@ -26,15 +28,6 @@ AMBIANCE_LABELS: dict[str, str] = {
     "FUN": "For fun",
     "TRYHARD": "Tryhard",
 }
-
-
-def _rank_short(tier: str | None, division: str | None) -> str:
-    if not tier:
-        return "Unranked"
-    t = tier.capitalize()
-    if division and tier.upper() not in ("MASTER", "GRANDMASTER", "CHALLENGER"):
-        return f"{t} {division}"
-    return t
 
 
 def _rank_in_range(player_tier: str | None, min_rank: str | None, max_rank: str | None) -> bool:
@@ -78,10 +71,6 @@ def _pick_role(player: dict, wanted_roles: list[str] | None) -> str:
     return primary or "MIDDLE"
 
 
-def _format_rank(tier: str | None) -> str:
-    return tier.capitalize() if tier else "Unranked"
-
-
 def _format_roles(player: dict) -> str:
     primary = player.get("primary_role")
     secondary = player.get("secondary_role")
@@ -93,15 +82,6 @@ def _format_roles(player: dict) -> str:
 
 def _format_wanted(wanted_roles: list[str]) -> str:
     return ", ".join(ROLE_NAMES.get(r, r) for r in wanted_roles)
-
-
-def _format_rank_range(min_rank: str | None, max_rank: str | None) -> str:
-    parts = []
-    if min_rank:
-        parts.append(min_rank.capitalize())
-    if max_rank:
-        parts.append(max_rank.capitalize())
-    return " → ".join(parts)
 
 
 def build_team_embed(team: dict) -> discord.Embed:
@@ -119,7 +99,7 @@ def build_team_embed(team: dict) -> discord.Embed:
         embed.add_field(name="Rôles recherchés", value=wanted_str, inline=False)
 
     if min_rank or max_rank:
-        embed.add_field(name="Elo", value=_format_rank_range(min_rank, max_rank), inline=True)
+        embed.add_field(name="Elo", value=format_rank_range(min_rank, max_rank), inline=True)
 
     members = team.get("members", [])
     if members:
@@ -127,7 +107,7 @@ def build_team_embed(team: dict) -> discord.Embed:
         for m in members:
             p = m["player"]
             role_emoji = ROLE_EMOJIS.get(m["role"], "")
-            rank = _rank_short(p.get("rank_solo_tier"), p.get("rank_solo_division"))
+            rank = format_rank(p.get("rank_solo_tier"), p.get("rank_solo_division"))
             roster_lines.append(f"{role_emoji} **{p['riot_game_name']}**#{p['riot_tag_line']} — {rank}")
         embed.add_field(name=f"Roster ({len(members)}/5)", value="\n".join(roster_lines), inline=False)
 
@@ -176,9 +156,9 @@ class MatchmakingCog(commands.Cog):
                     return
                 resp.raise_for_status()
                 player = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch player profile")
-            await interaction.followup.send("Erreur lors de la récupération de ton profil.", ephemeral=True)
+            await interaction.followup.send(format_api_error(exc), ephemeral=True)
             return
 
         try:
@@ -188,9 +168,9 @@ class MatchmakingCog(commands.Cog):
                     return
                 resp.raise_for_status()
                 team = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch team %s", team_slug)
-            await interaction.followup.send("Erreur lors de la récupération de l'équipe.", ephemeral=True)
+            await interaction.followup.send(format_api_error(exc), ephemeral=True)
             return
 
         if str(interaction.user.id) == team.get("captain_discord_id"):
@@ -221,8 +201,8 @@ class MatchmakingCog(commands.Cog):
             return
 
         if not _rank_in_range(player.get("rank_solo_tier"), team.get("min_rank"), team.get("max_rank")):
-            player_rank = _format_rank(player.get("rank_solo_tier"))
-            range_str = _format_rank_range(team.get("min_rank"), team.get("max_rank"))
+            player_rank = format_rank(player.get("rank_solo_tier"), None)
+            range_str = format_rank_range(team.get("min_rank"), team.get("max_rank"))
             await interaction.followup.send(
                 f"Ton elo ({player_rank}) ne correspond pas à la fourchette de l'équipe ({range_str}).",
                 ephemeral=True,
@@ -257,9 +237,9 @@ class MatchmakingCog(commands.Cog):
                 ephemeral=True,
             )
             return
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to DM captain %s", captain_id)
-            await interaction.followup.send("Erreur lors de l'envoi de la candidature.", ephemeral=True)
+            await interaction.followup.send(format_api_error(exc), ephemeral=True)
             return
 
         await interaction.followup.send(
@@ -281,9 +261,9 @@ class MatchmakingCog(commands.Cog):
                     return
                 resp.raise_for_status()
                 team = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch team")
-            await interaction.followup.send("Erreur lors de la récupération de ton équipe.", ephemeral=True)
+            await interaction.followup.send(format_api_error(exc), ephemeral=True)
             return
 
         try:
@@ -293,9 +273,9 @@ class MatchmakingCog(commands.Cog):
                     return
                 resp.raise_for_status()
                 player = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch player %s", player_slug)
-            await interaction.followup.send("Erreur lors de la récupération du profil.", ephemeral=True)
+            await interaction.followup.send(format_api_error(exc), ephemeral=True)
             return
 
         riot_id = f"{player['riot_game_name']}#{player['riot_tag_line']}"
@@ -337,8 +317,8 @@ class MatchmakingCog(commands.Cog):
             return
 
         if not _rank_in_range(player.get("rank_solo_tier"), team.get("min_rank"), team.get("max_rank")):
-            player_rank = _format_rank(player.get("rank_solo_tier"))
-            range_str = _format_rank_range(team.get("min_rank"), team.get("max_rank"))
+            player_rank = format_rank(player.get("rank_solo_tier"), None)
+            range_str = format_rank_range(team.get("min_rank"), team.get("max_rank"))
             await interaction.followup.send(
                 f"L'elo de **{riot_id}** ({player_rank}) ne correspond pas "
                 f"à la fourchette de ton équipe ({range_str}).",
@@ -372,9 +352,9 @@ class MatchmakingCog(commands.Cog):
                 ephemeral=True,
             )
             return
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to DM player %s", player_discord_id)
-            await interaction.followup.send("Erreur lors de l'envoi de la proposition.", ephemeral=True)
+            await interaction.followup.send(format_api_error(exc), ephemeral=True)
             return
 
         await interaction.followup.send(
@@ -421,9 +401,9 @@ class MatchmakingCog(commands.Cog):
                     return
                 resp.raise_for_status()
                 player = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch player profile")
-            await interaction.followup.send("Erreur lors de la récupération de ton profil.", ephemeral=True)
+            await interaction.followup.send(format_api_error(exc), ephemeral=True)
             return
 
         embed = build_profile_embed(player)
@@ -460,9 +440,9 @@ class MatchmakingCog(commands.Cog):
                     return
                 resp.raise_for_status()
                 team = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch team")
-            await interaction.followup.send("Erreur lors de la récupération de ton équipe.", ephemeral=True)
+            await interaction.followup.send(format_api_error(exc), ephemeral=True)
             return
 
         embed = build_team_embed(team)

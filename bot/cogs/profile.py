@@ -7,6 +7,8 @@ from discord import app_commands
 from discord.ext import commands
 
 from shared.constants import RANK_COLORS, ROLE_EMOJIS, ROLE_NAMES
+from shared.format import format_rank, format_win_rate
+from utils import format_api_error
 
 APP_URL = os.getenv("APP_URL", "http://localhost:5173")
 
@@ -26,27 +28,6 @@ AMBIANCE_LABELS: dict[str, str] = {
     "FUN": "For fun",
     "TRYHARD": "Tryhard",
 }
-
-
-def _rank_str(tier: str | None, division: str | None, lp: int | None) -> str:
-    if not tier:
-        return "Unranked"
-    parts = [tier.capitalize()]
-    if division and tier not in ("MASTER", "GRANDMASTER", "CHALLENGER"):
-        parts.append(division)
-    if lp is not None:
-        parts.append(f"({lp} LP)")
-    return " ".join(parts)
-
-
-def _winrate(wins: int | None, losses: int | None) -> str | None:
-    if not wins and not losses:
-        return None
-    total = (wins or 0) + (losses or 0)
-    if total == 0:
-        return None
-    wr = (wins or 0) / total * 100
-    return f"{wr:.0f}% WR ({total}G)"
 
 
 def _role_display(primary: str | None, secondary: str | None) -> str:
@@ -86,8 +67,8 @@ def build_profile_embed(player: dict) -> discord.Embed:
     url = f"{APP_URL}/p/{player['slug']}"
     embed = discord.Embed(title=title, url=url, color=color)
 
-    rank_solo = _rank_str(tier, player.get("rank_solo_division"), player.get("rank_solo_lp"))
-    wr = _winrate(player.get("rank_solo_wins"), player.get("rank_solo_losses"))
+    rank_solo = format_rank(tier, player.get("rank_solo_division"), player.get("rank_solo_lp"))
+    wr = format_win_rate(player.get("rank_solo_wins"), player.get("rank_solo_losses"), include_games=True)
     rank_display = rank_solo
     if wr:
         rank_display += f" · {wr}"
@@ -95,8 +76,8 @@ def build_profile_embed(player: dict) -> discord.Embed:
 
     flex_tier = player.get("rank_flex_tier")
     if flex_tier:
-        flex_str = _rank_str(flex_tier, player.get("rank_flex_division"), player.get("rank_flex_lp"))
-        flex_wr = _winrate(player.get("rank_flex_wins"), player.get("rank_flex_losses"))
+        flex_str = format_rank(flex_tier, player.get("rank_flex_division"), player.get("rank_flex_lp"))
+        flex_wr = format_win_rate(player.get("rank_flex_wins"), player.get("rank_flex_losses"), include_games=True)
         flex_display = flex_str
         if flex_wr:
             flex_display += f" · {flex_wr}"
@@ -188,12 +169,9 @@ class ProfileCog(commands.Cog):
                     return
                 resp.raise_for_status()
                 player = await resp.json()
-        except Exception:
+        except Exception as exc:
             log.exception("Failed to fetch player %s", slug)
-            await interaction.followup.send(
-                "Erreur lors de la récupération du profil. Réessaie plus tard.",
-                ephemeral=True,
-            )
+            await interaction.followup.send(format_api_error(exc), ephemeral=True)
             return
 
         embed = build_profile_embed(player)

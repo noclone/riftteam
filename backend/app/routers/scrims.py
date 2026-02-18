@@ -159,6 +159,34 @@ async def list_scrims(
     return ScrimListResponse(scrims=scrims, total=total)
 
 
+@router.delete("/scrims/by-team/{team_slug}", status_code=200)
+async def cancel_team_scrims(
+    team_slug: str,
+    x_bot_secret: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+):
+    if x_bot_secret != settings.bot_api_secret:
+        raise HTTPException(403, "Invalid bot secret")
+
+    stmt = select(Team).where(Team.slug == team_slug)
+    result = await db.execute(stmt)
+    team = result.scalar_one_or_none()
+    if not team:
+        raise HTTPException(404, "Team not found")
+
+    now = datetime.now(timezone.utc)
+    active = await db.execute(
+        select(Scrim).where(Scrim.team_id == team.id, Scrim.is_active == True)
+    )
+    count = 0
+    for s in active.scalars().all():
+        s.is_active = False
+        s.updated_at = now
+        count += 1
+    await db.commit()
+    return {"cancelled": count}
+
+
 @router.delete("/scrims/{scrim_id}", status_code=204)
 async def cancel_scrim(
     scrim_id: str,
