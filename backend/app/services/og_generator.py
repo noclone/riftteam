@@ -191,7 +191,7 @@ async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
         bbox = draw.textbbox((0, 0), label, font=font_activities)
         draw.text((cx - (bbox[2] - bbox[0]) // 2, CARD_H - 105), label, fill=(255, 255, 255), font=font_activities)
 
-    draw.text((CARD_W - 200, CARD_H - 48), "riftteam.gg", fill=(70, 70, 90), font=font_brand)
+    draw.text((CARD_W - 200, CARD_H - 48), "riftteam.fr", fill=(70, 70, 90), font=font_brand)
 
     buf = BytesIO()
     img.save(buf, format="PNG", optimize=True)
@@ -283,7 +283,7 @@ async def generate_team_og_image(team: dict) -> bytes:
         bbox = draw.textbbox((0, 0), label, font=font_activities)
         draw.text((cx - (bbox[2] - bbox[0]) // 2, CARD_H - 105), label, fill=(255, 255, 255), font=font_activities)
 
-    draw.text((CARD_W - 200, CARD_H - 48), "riftteam.gg", fill=(70, 70, 90), font=font_brand)
+    draw.text((CARD_W - 200, CARD_H - 48), "riftteam.fr", fill=(70, 70, 90), font=font_brand)
 
     buf = BytesIO()
     img.save(buf, format="PNG", optimize=True)

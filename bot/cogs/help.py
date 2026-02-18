@@ -61,7 +61,7 @@ class HelpCog(commands.Cog):
             inline=False,
         )
 
-        embed.set_footer(text="RiftTeam \u00b7 riftteam.gg")
+        embed.set_footer(text="RiftTeam \u00b7 riftteam.fr")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 

@@ -24,10 +24,10 @@ Un profil joueur **alimenté par l'API Riot**, créé en 60 secondes, partageabl
 ## 2. User Stories V1
 
 ### Joueur LFT (Looking For Team)
-1. Je vais sur `riftteam.gg`, j'entre mon Riot ID (`Pseudo#TAG`)
+1. Je vais sur `riftteam.fr`, j'entre mon Riot ID (`Pseudo#TAG`)
 2. Le site récupère automatiquement : mon rang, mes top champions, mon rôle principal, mon winrate
 3. Je complète : mes disponibilités, ce que je cherche, mon Discord, une description libre
-4. J'obtiens un lien `https://riftteam.gg/p/Pseudo-TAG`
+4. J'obtiens un lien `https://riftteam.fr/p/Pseudo-TAG`
 5. Je colle ce lien dans un channel Discord → Discord affiche un embed propre avec mon rang, mon rôle, mes top champs
 6. Les teams intéressées consultent mon profil complet via le lien et me contactent sur Discord
 
@@ -413,7 +413,7 @@ Budget estimé pour 1000 profils actifs :
 
 ### A. Embed via lien (OpenGraph)
 
-Quand quelqu'un colle `https://riftteam.gg/p/Pseudo-TAG` dans Discord, le crawler Discord (`Discordbot` user-agent) fetch l'URL. FastAPI détecte le crawler et lui sert un HTML minimal avec les meta tags.
+Quand quelqu'un colle `https://riftteam.fr/p/Pseudo-TAG` dans Discord, le crawler Discord (`Discordbot` user-agent) fetch l'URL. FastAPI détecte le crawler et lui sert un HTML minimal avec les meta tags.
 
 ```python
 # routers/og.py
@@ -437,7 +437,7 @@ async def player_page(request: Request, slug: str):
         role = format_role(player)        # "🎯 Jungle"
         champs = format_champions(player) # "Lee Sin · Vi · Viego"
         color = rank_to_hex_color(player) # "#50C878" (vert pour Emerald)
-        og_image = f"https://riftteam.gg/api/og/{slug}.png"
+        og_image = f"https://riftteam.fr/api/og/{slug}.png"
         
         html = f"""<!DOCTYPE html>
         <html>
@@ -448,7 +448,7 @@ async def player_page(request: Request, slug: str):
             <meta property="og:image" content="{og_image}" />
             <meta property="og:image:width" content="1200" />
             <meta property="og:image:height" content="630" />
-            <meta property="og:url" content="https://riftteam.gg/p/{slug}" />
+            <meta property="og:url" content="https://riftteam.fr/p/{slug}" />
             <meta property="og:type" content="profile" />
             <meta name="theme-color" content="{color}" />
         </head>
@@ -483,7 +483,7 @@ ROLE_EMOJIS = {
 class ProfileCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.api_base = "https://riftteam.gg/api"
+        self.api_base = "https://riftteam.fr/api"
     
     @app_commands.command(name="profil", description="Afficher le profil RiftTeam d'un joueur")
     @app_commands.describe(riot_id="Riot ID du joueur (ex: Pseudo#TAG)")
@@ -504,7 +504,7 @@ class ProfileCog(commands.Cog):
                 if resp.status == 404:
                     await interaction.followup.send(
                         f"❌ Aucun profil RiftTeam trouvé pour `{riot_id}`.\n"
-                        f"👉 Crée ton profil sur https://riftteam.gg",
+                        f"👉 Crée ton profil sur https://riftteam.fr",
                         ephemeral=True
                     )
                     return
@@ -527,7 +527,7 @@ class ProfileCog(commands.Cog):
         
         embed = discord.Embed(
             title=f"{player['riot_game_name']}#{player['riot_tag_line']}",
-            url=f"https://riftteam.gg/p/{slug}",
+            url=f"https://riftteam.fr/p/{slug}",
             color=color
         )
         
@@ -636,7 +636,7 @@ async def generate_og_card(player: dict) -> bytes:
         draw.text((60, 470), f"📅 {player['availability_summary']}", font=FONT_BODY, fill=(200, 200, 200))
     
     # Logo RiftTeam en bas à droite
-    draw.text((1000, 580), "riftteam.gg", font=FONT_SMALL, fill=(150, 150, 150))
+    draw.text((1000, 580), "riftteam.fr", font=FONT_SMALL, fill=(150, 150, 150))
     
     # Icône de rang en haut à droite
     rank_icon = await load_rank_icon(rank_tier)
@@ -756,7 +756,7 @@ async def og_image(slug: str):
                                                                            ▼
                                                                   Profil créé ! 🎉
                                                                   Ton lien :
-                                                                  https://riftteam.gg/p/Pseudo-TAG
+                                                                  https://riftteam.fr/p/Pseudo-TAG
                                                                   [ 📋 Copier ] [ 📤 Partager ]
 ```
 
@@ -842,7 +842,7 @@ L'admin du serveur installe le bot
 Le bot devient un standard sur le serveur
 ```
 
-Chaque embed partagé est une pub pour la plateforme. Le lien `riftteam.gg` est visible dans chaque card.
+Chaque embed partagé est une pub pour la plateforme. Le lien `riftteam.fr` est visible dans chaque card.
 
 ---
 
