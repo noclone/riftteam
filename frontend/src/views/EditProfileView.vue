@@ -42,7 +42,8 @@ function toggleActivity(value: string) {
 }
 
 function validationError(): string {
-  if (frequencyMin.value > frequencyMax.value) return 'La fréquence min doit être inférieure ou égale à la fréquence max.'
+  if (frequencyMin.value > frequencyMax.value)
+    return 'La fréquence min doit être inférieure ou égale à la fréquence max.'
   if (description.value.length > DESC_MAX) return `La description ne doit pas dépasser ${DESC_MAX} caractères.`
   return ''
 }
@@ -78,19 +79,26 @@ onMounted(async () => {
 async function saveProfile() {
   if (!player.value) return
   const ve = validationError()
-  if (ve) { error.value = ve; return }
+  if (ve) {
+    error.value = ve
+    return
+  }
   saving.value = true
   error.value = ''
   success.value = ''
   try {
-    await api.updatePlayer(player.value.slug, {
-      description: description.value || undefined,
-      activities: activities.value,
-      ambiance: ambiance.value || undefined,
-      frequency_min: frequencyMin.value,
-      frequency_max: frequencyMax.value,
-      is_lft: isLft.value,
-    }, token.value)
+    await api.updatePlayer(
+      player.value.slug,
+      {
+        description: description.value || undefined,
+        activities: activities.value,
+        ambiance: ambiance.value || undefined,
+        frequency_min: frequencyMin.value,
+        frequency_max: frequencyMax.value,
+        is_lft: isLft.value,
+      },
+      token.value,
+    )
     success.value = 'Profil mis à jour !'
   } catch (e: any) {
     error.value = e.message
@@ -124,14 +132,13 @@ async function deleteProfile() {
         <div class="text-4xl mb-4">&#x1F512;</div>
         <h2 class="text-xl font-bold mb-3">Accès réservé</h2>
         <p class="text-gray-400">
-          Pour modifier ton profil, utilise la commande <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-profil-edit</code> sur Discord.
+          Pour modifier ton profil, utilise la commande
+          <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-profil-edit</code> sur Discord.
         </p>
       </div>
 
       <!-- Loading -->
-      <div v-else-if="loading" class="text-center text-gray-400">
-        Chargement du profil...
-      </div>
+      <div v-else-if="loading" class="text-center text-gray-400">Chargement du profil...</div>
 
       <!-- Edit form -->
       <div v-else-if="player">
@@ -141,10 +148,7 @@ async function deleteProfile() {
               {{ player.riot_game_name }}<span class="text-gray-500">#{{ player.riot_tag_line }}</span>
             </p>
           </div>
-          <RouterLink
-            :to="`/p/${player.slug}`"
-            class="text-sm text-indigo-400 hover:text-indigo-300 transition"
-          >
+          <RouterLink :to="`/p/${player.slug}`" class="text-sm text-indigo-400 hover:text-indigo-300 transition">
             Voir mon profil
           </RouterLink>
         </div>
@@ -177,9 +181,7 @@ async function deleteProfile() {
               <button
                 :class="[
                   'flex-1 py-2.5 rounded-lg text-sm font-semibold transition',
-                  ambiance === 'TRYHARD'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
+                  ambiance === 'TRYHARD' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
                 ]"
                 @click="ambiance = ambiance === 'TRYHARD' ? '' : 'TRYHARD'"
               >
@@ -188,9 +190,7 @@ async function deleteProfile() {
               <button
                 :class="[
                   'flex-1 py-2.5 rounded-lg text-sm font-semibold transition',
-                  ambiance === 'FUN'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
+                  ambiance === 'FUN' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
                 ]"
                 @click="ambiance = ambiance === 'FUN' ? '' : 'FUN'"
               >

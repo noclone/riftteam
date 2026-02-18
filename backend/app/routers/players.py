@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -11,13 +11,18 @@ from sqlalchemy.orm import selectinload
 from app.database import async_session, get_db
 from app.dependencies import get_riot_client, verify_bot_secret
 from app.models.player import Player
-from app.services.player_helpers import apply_riot_data, create_player_from_riot_data, populate_champions, refresh_champions
 from app.routers.og import invalidate_og_cache
 from app.schemas.player import (
     PlayerCreate,
     PlayerListResponse,
     PlayerResponse,
     PlayerUpdate,
+)
+from app.services.player_helpers import (
+    apply_riot_data,
+    create_player_from_riot_data,
+    populate_champions,
+    refresh_champions,
 )
 from app.services.query_helpers import apply_rank_filters
 from app.services.riot_api import fetch_full_profile
@@ -37,7 +42,7 @@ LAZY_REFRESH_THRESHOLD = timedelta(hours=6)
 def _ensure_utc(dt: datetime) -> datetime:
     """Attach UTC tzinfo to a naive datetime, or return as-is if aware."""
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -82,10 +87,10 @@ async def create_player(
         riot_data = await fetch_full_profile(game_name, tag_line, client)
     except RiotAPIError as e:
         if e.status == 404:
-            raise HTTPException(404, "Riot ID not found")
-        raise HTTPException(502, f"Riot API error: {e.message}")
+            raise HTTPException(404, "Riot ID not found") from None
+        raise HTTPException(502, f"Riot API error: {e.message}") from e
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if existing and existing.discord_user_id is None:
         player = existing
@@ -134,7 +139,7 @@ async def create_player(
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(409, "Profile already exists for this Riot ID")
+        raise HTTPException(409, "Profile already exists for this Riot ID") from None
     await db.refresh(player)
     stmt = select(Player).options(selectinload(Player.champions)).where(Player.id == player.id)
     result = await db.execute(stmt)
@@ -187,7 +192,7 @@ async def get_player(
     player = await _get_player_or_404(slug, db)
 
     if player.last_riot_sync and player.id not in _refreshing_players:
-        elapsed = datetime.now(timezone.utc) - _ensure_utc(player.last_riot_sync)
+        elapsed = datetime.now(UTC) - _ensure_utc(player.last_riot_sync)
         if elapsed > LAZY_REFRESH_THRESHOLD:
             client = getattr(request.app.state, "riot_client", None)
             if client:
@@ -246,7 +251,7 @@ async def update_player(
     update_data = body.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(player, field, value)
-    player.updated_at = datetime.now(timezone.utc)
+    player.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(player)
     stmt = select(Player).options(selectinload(Player.champions)).where(Player.id == player.id)
@@ -300,7 +305,7 @@ async def refresh_player(
     player = await _get_player_or_404(slug, db)
 
     if player.last_riot_sync:
-        elapsed = datetime.now(timezone.utc) - _ensure_utc(player.last_riot_sync)
+        elapsed = datetime.now(UTC) - _ensure_utc(player.last_riot_sync)
         if elapsed < REFRESH_COOLDOWN:
             remaining = int((REFRESH_COOLDOWN - elapsed).total_seconds() / 60)
             raise HTTPException(429, f"Refresh cooldown: try again in {remaining} minutes")
@@ -309,9 +314,9 @@ async def refresh_player(
     try:
         riot_data = await fetch_full_profile(player.riot_game_name, player.riot_tag_line, client)
     except RiotAPIError as e:
-        raise HTTPException(502, f"Riot API error: {e.message}")
+        raise HTTPException(502, f"Riot API error: {e.message}") from e
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     apply_riot_data(player, riot_data)
     player.last_riot_sync = now
     player.updated_at = now
@@ -349,6 +354,6 @@ async def reactivate_player(
         raise HTTPException(403, "Not authorized")
 
     player.is_lft = True
-    player.updated_at = datetime.now(timezone.utc)
+    player.updated_at = datetime.now(UTC)
     await db.commit()
     return {"status": "reactivated"}

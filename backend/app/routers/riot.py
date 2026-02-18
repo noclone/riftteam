@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 
 from app.dependencies import get_riot_client
 from app.schemas.player import RiotCheckResponse
@@ -15,8 +15,8 @@ async def check_riot_id(name: str, tag: str, request: Request):
         account = await client.get_account_by_riot_id(name, tag)
     except RiotAPIError as e:
         if e.status == 404:
-            raise HTTPException(404, "Riot ID not found")
-        raise HTTPException(502, f"Riot API error: {e.message}")
+            raise HTTPException(404, "Riot ID not found") from None
+        raise HTTPException(502, f"Riot API error: {e.message}") from e
 
     puuid = account["puuid"]
     summoner_level = None

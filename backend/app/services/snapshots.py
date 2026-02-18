@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,7 @@ async def record_rank_snapshot(
     recorded_at: datetime | None = None,
 ) -> None:
     """Persist a rank snapshot for solo and flex queues."""
-    ts = recorded_at or datetime.now(timezone.utc)
+    ts = recorded_at or datetime.now(UTC)
 
     for queue_type, prefix in [("RANKED_SOLO_5x5", "solo"), ("RANKED_FLEX_SR", "flex")]:
         tier = rank_data.get(f"rank_{prefix}_tier")
@@ -42,7 +42,7 @@ async def record_champion_snapshot(
     recorded_at: datetime | None = None,
 ) -> None:
     """Persist a champion pool snapshot with roles and stats."""
-    ts = recorded_at or datetime.now(timezone.utc)
+    ts = recorded_at or datetime.now(UTC)
     snapshot = ChampionSnapshot(
         player_id=player_id,
         champions=champions,

@@ -29,8 +29,8 @@ def format_rank(tier: str | None, division: str | None, lp: int | None = None) -
 def format_win_rate(wins: int | None, losses: int | None, *, include_games: bool = False) -> str:
     """Format win rate as a percentage string, optionally with total games."""
     w = wins or 0
-    l = losses or 0
-    total = w + l
+    lo = losses or 0
+    total = w + lo
     if total == 0:
         return ""
     pct = round(w / total * 100)

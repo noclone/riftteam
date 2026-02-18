@@ -5,7 +5,9 @@ import { RouterLink } from 'vue-router'
 <template>
   <div class="bg-gray-900 text-white p-4 sm:p-8">
     <div class="max-w-3xl mx-auto">
-      <RouterLink to="/" class="text-indigo-400 hover:text-indigo-300 text-sm mb-6 inline-block">&larr; Retour à l'accueil</RouterLink>
+      <RouterLink to="/" class="text-indigo-400 hover:text-indigo-300 text-sm mb-6 inline-block"
+        >&larr; Retour à l'accueil</RouterLink
+      >
 
       <h1 class="text-3xl font-bold mb-8">Mentions légales</h1>
 
@@ -13,7 +15,12 @@ import { RouterLink } from 'vue-router'
         <section>
           <h2 class="text-xl font-semibold text-white mb-3">Éditeur du site</h2>
           <p>Jean Fechter</p>
-          <p>Contact : <a href="mailto:jean.fechter@gmail.com" class="text-indigo-400 hover:text-indigo-300">jean.fechter@gmail.com</a></p>
+          <p>
+            Contact :
+            <a href="mailto:jean.fechter@gmail.com" class="text-indigo-400 hover:text-indigo-300"
+              >jean.fechter@gmail.com</a
+            >
+          </p>
           <p>Site : riftteam.fr</p>
         </section>
 
@@ -21,16 +28,39 @@ import { RouterLink } from 'vue-router'
           <h2 class="text-xl font-semibold text-white mb-3">Hébergeur</h2>
           <p>OVHcloud</p>
           <p>2 rue Kellermann, 59100 Roubaix, France</p>
-          <p>Site : <a href="https://www.ovhcloud.com" class="text-indigo-400 hover:text-indigo-300" target="_blank" rel="noopener noreferrer">www.ovhcloud.com</a></p>
+          <p>
+            Site :
+            <a
+              href="https://www.ovhcloud.com"
+              class="text-indigo-400 hover:text-indigo-300"
+              target="_blank"
+              rel="noopener noreferrer"
+              >www.ovhcloud.com</a
+            >
+          </p>
         </section>
 
         <section>
           <h2 class="text-xl font-semibold text-white mb-3">Propriété intellectuelle</h2>
-          <p>RiftTeam n'est pas approuvé par Riot Games et ne reflète pas les vues ou opinions de Riot Games ou de quiconque impliqué officiellement dans la production ou la gestion des propriétés de Riot Games.</p>
-          <p class="mt-2">Riot Games et toutes les propriétés associées sont des marques déposées ou des marques de commerce enregistrées de Riot Games, Inc.</p>
-          <p class="mt-2">Les données de jeu sont utilisées conformément aux <a href="https://developer.riotgames.com/terms" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank" rel="noopener noreferrer">conditions d'utilisation de l'API Riot Games</a>.</p>
+          <p>
+            RiftTeam n'est pas approuvé par Riot Games et ne reflète pas les vues ou opinions de Riot Games ou de
+            quiconque impliqué officiellement dans la production ou la gestion des propriétés de Riot Games.
+          </p>
+          <p class="mt-2">
+            Riot Games et toutes les propriétés associées sont des marques déposées ou des marques de commerce
+            enregistrées de Riot Games, Inc.
+          </p>
+          <p class="mt-2">
+            Les données de jeu sont utilisées conformément aux
+            <a
+              href="https://developer.riotgames.com/terms"
+              class="text-indigo-400 hover:text-indigo-300 underline"
+              target="_blank"
+              rel="noopener noreferrer"
+              >conditions d'utilisation de l'API Riot Games</a
+            >.
+          </p>
         </section>
-
       </div>
     </div>
   </div>

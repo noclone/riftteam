@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -8,7 +8,6 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_riot_client, verify_bot_secret
-from app.services.player_helpers import create_player_from_riot_data, populate_champions
 from app.models.player import Player
 from app.models.team import Team, TeamMember
 from app.schemas.team import (
@@ -18,6 +17,7 @@ from app.schemas.team import (
     TeamResponse,
     TeamUpdate,
 )
+from app.services.player_helpers import create_player_from_riot_data, populate_champions
 from app.services.query_helpers import apply_rank_filters
 from app.services.riot_api import fetch_full_profile
 from app.services.token_store import consume_token, validate_token
@@ -62,7 +62,7 @@ async def create_team(
     if captain_check.scalar_one_or_none():
         raise HTTPException(409, "Tu es déjà capitaine d'une équipe")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     team = Team(
         name=team_name,
         slug=slug,
@@ -200,7 +200,7 @@ async def update_team(
 
     for field, value in update_data.items():
         setattr(team, field, value)
-    team.updated_at = datetime.now(timezone.utc)
+    team.updated_at = datetime.now(UTC)
     await db.commit()
 
     stmt = select(Team).options(selectinload(Team.members).selectinload(TeamMember.player)).where(Team.id == team.id)
@@ -276,10 +276,10 @@ async def add_member(
             riot_data = await fetch_full_profile(game_name, tag_line, client)
         except RiotAPIError as e:
             if e.status == 404:
-                raise HTTPException(404, "Riot ID introuvable")
-            raise HTTPException(502, f"Riot API error: {e.message}")
+                raise HTTPException(404, "Riot ID introuvable") from None
+            raise HTTPException(502, f"Riot API error: {e.message}") from e
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         player = create_player_from_riot_data(
             riot_data,
             Player.make_slug(riot_data["game_name"], riot_data["tag_line"]),
@@ -302,7 +302,7 @@ async def add_member(
 
     member = TeamMember(team_id=team.id, player_id=player.id, role=body.role.upper())
     db.add(member)
-    team.updated_at = datetime.now(timezone.utc)
+    team.updated_at = datetime.now(UTC)
     await db.commit()
 
     stmt = select(Team).options(selectinload(Team.members).selectinload(TeamMember.player)).where(Team.id == team.id)
@@ -338,7 +338,7 @@ async def remove_member(
         raise HTTPException(404, "Ce joueur n'est pas dans l'équipe")
 
     await db.delete(member)
-    team.updated_at = datetime.now(timezone.utc)
+    team.updated_at = datetime.now(UTC)
     await db.commit()
 
 
@@ -357,6 +357,6 @@ async def reactivate_team(
         raise HTTPException(403, "Seul le capitaine peut réactiver l'équipe")
 
     team.is_lfp = True
-    team.updated_at = datetime.now(timezone.utc)
+    team.updated_at = datetime.now(UTC)
     await db.commit()
     return {"status": "reactivated"}

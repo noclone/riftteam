@@ -1,4 +1,4 @@
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,10 +8,10 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import verify_bot_secret
-from app.services.query_helpers import apply_rank_filters
 from app.models.scrim import Scrim
 from app.models.team import Team, TeamMember
 from app.schemas.scrim import ScrimCreate, ScrimListResponse, ScrimResponse
+from app.services.query_helpers import apply_rank_filters
 
 router = APIRouter(tags=["scrims"])
 
@@ -51,10 +51,10 @@ async def create_scrim(
     if team.captain_discord_id != body.captain_discord_id:
         raise HTTPException(403, "Seul le capitaine peut poster un scrim")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     previous = await db.execute(
-        select(Scrim).where(Scrim.team_id == team.id, Scrim.is_active == True)
+        select(Scrim).where(Scrim.team_id == team.id, Scrim.is_active.is_(True))
     )
     for old in previous.scalars().all():
         old.is_active = False
@@ -99,8 +99,8 @@ async def list_scrims(
     db: AsyncSession = Depends(get_db),
 ):
     """List upcoming active scrims with optional date, time, rank and format filters."""
-    now = datetime.now(timezone.utc)
-    base_filter = [Scrim.is_active == True, Scrim.scheduled_at >= now]
+    now = datetime.now(UTC)
+    base_filter = [Scrim.is_active.is_(True), Scrim.scheduled_at >= now]
 
     stmt = (
         select(Scrim)
@@ -116,7 +116,7 @@ async def list_scrims(
         try:
             d = date.fromisoformat(scheduled_date)
         except ValueError:
-            raise HTTPException(400, "Format de date invalide (attendu : YYYY-MM-DD)")
+            raise HTTPException(400, "Format de date invalide (attendu : YYYY-MM-DD)") from None
         day_start = datetime.combine(d, time.min, tzinfo=PARIS_TZ)
         day_end = datetime.combine(d + timedelta(days=1), time.min, tzinfo=PARIS_TZ)
         stmt = stmt.where(Scrim.scheduled_at >= day_start, Scrim.scheduled_at < day_end)
@@ -165,9 +165,9 @@ async def cancel_team_scrims(
     if not team:
         raise HTTPException(404, "Team not found")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     active = await db.execute(
-        select(Scrim).where(Scrim.team_id == team.id, Scrim.is_active == True)
+        select(Scrim).where(Scrim.team_id == team.id, Scrim.is_active.is_(True))
     )
     count = 0
     for s in active.scalars().all():
@@ -188,5 +188,5 @@ async def cancel_scrim(
 
     scrim = await _get_scrim_or_404(scrim_id, db)
     scrim.is_active = False
-    scrim.updated_at = datetime.now(timezone.utc)
+    scrim.updated_at = datetime.now(UTC)
     await db.commit()

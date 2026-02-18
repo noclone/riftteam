@@ -119,7 +119,7 @@ class RiotClient:
                         text = await resp.text()
                         raise RiotAPIError(resp.status, text)
                     result = await resp.json()
-        except (asyncio.TimeoutError, aiohttp.ClientError):
+        except (TimeoutError, aiohttp.ClientError):
             if _retry < 3:
                 await asyncio.sleep(1 * (2 ** _retry))
                 return await self._request(url, _retry + 1)

@@ -1,6 +1,5 @@
 import asyncio
 import logging
-
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
@@ -65,6 +64,7 @@ app.include_router(og_router)
 async def health():
     """Return API and database health status."""
     from sqlalchemy import text
+
     from app.database import async_session
     try:
         async with async_session() as session:

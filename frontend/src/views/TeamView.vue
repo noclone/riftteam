@@ -18,7 +18,8 @@ const ROLE_LABELS: Record<string, string> = {
   UTILITY: 'Support',
 }
 
-const ROLE_ICON_BASE = 'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-clash/global/default/assets/images/position-selector/positions'
+const ROLE_ICON_BASE =
+  'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-clash/global/default/assets/images/position-selector/positions'
 const ROLE_ICONS: Record<string, string> = {
   TOP: `${ROLE_ICON_BASE}/icon-position-top.png`,
   JUNGLE: `${ROLE_ICON_BASE}/icon-position-jungle.png`,
@@ -72,7 +73,7 @@ function formatRank(tier: string | null, division: string | null): string {
 }
 
 function rankColor(tier: string | null): string {
-  return tier ? RANK_COLORS[tier.toUpperCase()] ?? '#6B6B6B' : '#6B6B6B'
+  return tier ? (RANK_COLORS[tier.toUpperCase()] ?? '#6B6B6B') : '#6B6B6B'
 }
 
 const membersByRole = computed(() => {
@@ -136,21 +137,32 @@ onMounted(async () => {
           </div>
 
           <!-- Chips -->
-          <div v-if="team.activities?.length || team.ambiance || (team.frequency_min != null && team.frequency_max != null)" class="flex flex-wrap gap-2.5 mt-4">
+          <div
+            v-if="
+              team.activities?.length || team.ambiance || (team.frequency_min != null && team.frequency_max != null)
+            "
+            class="flex flex-wrap gap-2.5 mt-4"
+          >
             <span
-              v-for="act in (team.activities ?? [])"
+              v-for="act in team.activities ?? []"
               :key="act"
               class="bg-cyan-600/20 text-cyan-300 text-base font-medium px-4 py-2 rounded-full"
             >
               {{ ACTIVITY_LABELS[act] ?? act }}
             </span>
-            <span v-if="team.ambiance" :class="[
-              'text-base font-medium px-4 py-2 rounded-full',
-              team.ambiance === 'TRYHARD' ? 'bg-purple-600/20 text-purple-300' : 'bg-green-600/20 text-green-300',
-            ]">
+            <span
+              v-if="team.ambiance"
+              :class="[
+                'text-base font-medium px-4 py-2 rounded-full',
+                team.ambiance === 'TRYHARD' ? 'bg-purple-600/20 text-purple-300' : 'bg-green-600/20 text-green-300',
+              ]"
+            >
               {{ AMBIANCE_LABELS[team.ambiance] ?? team.ambiance }}
             </span>
-            <span v-if="team.frequency_min != null && team.frequency_max != null" class="bg-gray-700/50 text-gray-300 text-base font-medium px-4 py-2 rounded-full">
+            <span
+              v-if="team.frequency_min != null && team.frequency_max != null"
+              class="bg-gray-700/50 text-gray-300 text-base font-medium px-4 py-2 rounded-full"
+            >
               {{ team.frequency_min }}-{{ team.frequency_max }}x / semaine
             </span>
           </div>
@@ -167,10 +179,7 @@ onMounted(async () => {
           <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Roster</h2>
           <div class="space-y-2">
             <template v-for="role in ALL_ROLES" :key="role">
-              <div
-                v-if="membersByRole[role]"
-                class="bg-gray-700/30 rounded-lg p-3 flex items-center gap-3"
-              >
+              <div v-if="membersByRole[role]" class="bg-gray-700/30 rounded-lg p-3 flex items-center gap-3">
                 <img :src="ROLE_ICONS[role]" :alt="role" class="w-6 h-6 opacity-70" />
                 <img
                   v-if="profileIconUrl(membersByRole[role].player.profile_icon_id)"
@@ -182,7 +191,8 @@ onMounted(async () => {
                     :to="`/p/${membersByRole[role].player.slug}`"
                     class="font-medium hover:text-indigo-300 transition"
                   >
-                    {{ membersByRole[role].player.riot_game_name }}<span class="text-gray-500">#{{ membersByRole[role].player.riot_tag_line }}</span>
+                    {{ membersByRole[role].player.riot_game_name
+                    }}<span class="text-gray-500">#{{ membersByRole[role].player.riot_tag_line }}</span>
                   </RouterLink>
                   <div class="flex items-center gap-1.5 mt-0.5">
                     <img
@@ -191,11 +201,21 @@ onMounted(async () => {
                       :alt="membersByRole[role].player.rank_solo_tier!"
                       class="w-5 h-5"
                     />
-                    <span class="text-sm font-semibold" :style="{ color: rankColor(membersByRole[role].player.rank_solo_tier) }">
-                      {{ formatRank(membersByRole[role].player.rank_solo_tier, membersByRole[role].player.rank_solo_division) }}
+                    <span
+                      class="text-sm font-semibold"
+                      :style="{ color: rankColor(membersByRole[role].player.rank_solo_tier) }"
+                    >
+                      {{
+                        formatRank(
+                          membersByRole[role].player.rank_solo_tier,
+                          membersByRole[role].player.rank_solo_division,
+                        )
+                      }}
                     </span>
                     <span
-                      v-if="membersByRole[role].player.rank_solo_lp != null && membersByRole[role].player.rank_solo_tier"
+                      v-if="
+                        membersByRole[role].player.rank_solo_lp != null && membersByRole[role].player.rank_solo_tier
+                      "
                       class="text-xs"
                       :style="{ color: rankColor(membersByRole[role].player.rank_solo_tier) }"
                     >

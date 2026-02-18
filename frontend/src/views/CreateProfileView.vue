@@ -44,7 +44,8 @@ function toggleActivity(value: string) {
 }
 
 function validationError(): string {
-  if (frequencyMin.value > frequencyMax.value) return 'La fréquence min doit être inférieure ou égale à la fréquence max.'
+  if (frequencyMin.value > frequencyMax.value)
+    return 'La fréquence min doit être inférieure ou égale à la fréquence max.'
   if (description.value.length > DESC_MAX) return `La description ne doit pas dépasser ${DESC_MAX} caractères.`
   return ''
 }
@@ -100,17 +101,23 @@ onMounted(async () => {
 async function createProfile() {
   if (!riotData.value) return
   const ve = validationError()
-  if (ve) { error.value = ve; return }
+  if (ve) {
+    error.value = ve
+    return
+  }
   loading.value = true
   error.value = ''
   try {
-    const player = await api.createPlayer({
-      description: description.value || undefined,
-      activities: activities.value.length > 0 ? activities.value : undefined,
-      ambiance: ambiance.value || undefined,
-      frequency_min: frequencyMin.value,
-      frequency_max: frequencyMax.value,
-    }, token.value)
+    const player = await api.createPlayer(
+      {
+        description: description.value || undefined,
+        activities: activities.value.length > 0 ? activities.value : undefined,
+        ambiance: ambiance.value || undefined,
+        frequency_min: frequencyMin.value,
+        frequency_max: frequencyMax.value,
+      },
+      token.value,
+    )
     createdPlayer.value = player
     profileUrl.value = `${window.location.origin}/p/${player.slug}`
     step.value = 3
@@ -132,14 +139,13 @@ async function createProfile() {
         <div class="text-4xl mb-4">&#x1F512;</div>
         <h2 class="text-xl font-bold mb-3">Accès réservé</h2>
         <p class="text-gray-400">
-          Pour créer ton profil, utilise la commande <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-profil-create Pseudo#TAG</code> sur Discord.
+          Pour créer ton profil, utilise la commande
+          <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-profil-create Pseudo#TAG</code> sur Discord.
         </p>
       </div>
 
       <!-- Loading token validation -->
-      <div v-else-if="loading && step === 0" class="text-center text-gray-400">
-        Vérification en cours...
-      </div>
+      <div v-else-if="loading && step === 0" class="text-center text-gray-400">Vérification en cours...</div>
 
       <template v-else>
         <!-- Steps indicator -->
@@ -147,10 +153,7 @@ async function createProfile() {
           <div
             v-for="s in 2"
             :key="s"
-            :class="[
-              'w-8 h-1 rounded-full transition',
-              s <= step ? 'bg-indigo-500' : 'bg-gray-700',
-            ]"
+            :class="['w-8 h-1 rounded-full transition', s <= step ? 'bg-indigo-500' : 'bg-gray-700']"
           />
         </div>
 
@@ -165,10 +168,10 @@ async function createProfile() {
                 class="w-16 h-16 rounded-xl"
               />
               <div>
-                <p class="text-xl font-bold">{{ riotData.game_name }}<span class="text-gray-500">#{{ riotData.tag_line }}</span></p>
-                <p v-if="riotData.summoner_level" class="text-gray-400 text-sm">
-                  Niveau {{ riotData.summoner_level }}
+                <p class="text-xl font-bold">
+                  {{ riotData.game_name }}<span class="text-gray-500">#{{ riotData.tag_line }}</span>
                 </p>
+                <p v-if="riotData.summoner_level" class="text-gray-400 text-sm">Niveau {{ riotData.summoner_level }}</p>
               </div>
             </div>
             <p class="text-sm text-gray-400">
@@ -213,9 +216,7 @@ async function createProfile() {
                 <button
                   :class="[
                     'flex-1 py-2.5 rounded-lg text-sm font-semibold transition',
-                    ambiance === 'TRYHARD'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
+                    ambiance === 'TRYHARD' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
                   ]"
                   @click="ambiance = ambiance === 'TRYHARD' ? '' : 'TRYHARD'"
                 >
@@ -224,9 +225,7 @@ async function createProfile() {
                 <button
                   :class="[
                     'flex-1 py-2.5 rounded-lg text-sm font-semibold transition',
-                    ambiance === 'FUN'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
+                    ambiance === 'FUN' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
                   ]"
                   @click="ambiance = ambiance === 'FUN' ? '' : 'FUN'"
                 >
@@ -268,15 +267,16 @@ async function createProfile() {
             </div>
           </div>
           <label class="flex items-start gap-2 mt-6 cursor-pointer">
-            <input
-              v-model="consentAccepted"
-              type="checkbox"
-              class="mt-1 accent-indigo-600"
-            />
+            <input v-model="consentAccepted" type="checkbox" class="mt-1 accent-indigo-600" />
             <span class="text-sm text-gray-400">
               En créant mon profil, j'accepte les
-              <RouterLink to="/terms" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank">CGU</RouterLink> et la
-              <RouterLink to="/privacy" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank">politique de confidentialité</RouterLink>.
+              <RouterLink to="/terms" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank"
+                >CGU</RouterLink
+              >
+              et la
+              <RouterLink to="/privacy" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank"
+                >politique de confidentialité</RouterLink
+              >.
             </span>
           </label>
           <div class="flex gap-3 mt-4">

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from shared.constants import (
     MIN_GAMES_FOR_ROLE,
@@ -14,8 +14,8 @@ MATCH_FETCH_LIMIT = 50
 
 def _current_season_start() -> int:
     """Return the Unix timestamp for January 1st of the current year (UTC)."""
-    now = datetime.now(timezone.utc)
-    return int(datetime(now.year, 1, 1, tzinfo=timezone.utc).timestamp())
+    now = datetime.now(UTC)
+    return int(datetime(now.year, 1, 1, tzinfo=UTC).timestamp())
 
 
 def _find_participant(match_data: dict, puuid: str) -> dict | None:

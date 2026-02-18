@@ -53,9 +53,8 @@ async def _get_ddragon_version() -> str:
     global DDRAGON_VERSION
     if DDRAGON_VERSION:
         return DDRAGON_VERSION
-    async with aiohttp.ClientSession() as session:
-        async with session.get("https://ddragon.leagueoflegends.com/api/versions.json") as resp:
-            versions = await resp.json()
+    async with aiohttp.ClientSession() as session, session.get("https://ddragon.leagueoflegends.com/api/versions.json") as resp:
+        versions = await resp.json()
     DDRAGON_VERSION = versions[0]
     return DDRAGON_VERSION
 
@@ -70,11 +69,10 @@ async def _download_icon(url: str, filename: str) -> Image.Image | None:
         except Exception:
             cache_path.unlink(missing_ok=True)
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                if resp.status != 200:
-                    return None
-                data = await resp.read()
+        async with aiohttp.ClientSession() as session, session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+            if resp.status != 200:
+                return None
+            data = await resp.read()
         cache_path.write_bytes(data)
         return Image.open(BytesIO(data)).convert("RGBA")
     except Exception:
@@ -126,7 +124,6 @@ async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
     draw.rectangle([0, 0, CARD_W, 8], fill=rank_color)
 
     font_name = _load_font(56, bold=True)
-    font_wr = _load_font(34)
     font_rank = _load_font(52, bold=True)
     font_lp = _load_font(40)
     font_brand = _load_font(24)
@@ -183,7 +180,7 @@ async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
         grid_x = CARD_W - 60 - grid_w
         grid_y = rank_y + 10
 
-        for i, champ in enumerate(top_champs):
+        for i, _champ in enumerate(top_champs):
             col = i % 3
             row = i // 3
             x = grid_x + col * (icon_size + gap)

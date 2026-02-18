@@ -10,7 +10,6 @@ const error = ref('')
 const refreshing = ref(false)
 const refreshError = ref('')
 
-
 const DDRAGON_VERSION = ref('15.3.1')
 
 const ROLE_LABELS: Record<string, string> = {
@@ -21,7 +20,8 @@ const ROLE_LABELS: Record<string, string> = {
   UTILITY: 'Support',
 }
 
-const ROLE_ICON_BASE = 'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-clash/global/default/assets/images/position-selector/positions'
+const ROLE_ICON_BASE =
+  'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-clash/global/default/assets/images/position-selector/positions'
 const ROLE_ICONS: Record<string, string> = {
   TOP: `${ROLE_ICON_BASE}/icon-position-top.png`,
   JUNGLE: `${ROLE_ICON_BASE}/icon-position-jungle.png`,
@@ -58,12 +58,12 @@ const RANK_COLORS: Record<string, string> = {
 
 const rankColor = computed(() => {
   const tier = player.value?.rank_solo_tier?.toUpperCase()
-  return tier ? RANK_COLORS[tier] ?? '#6B6B6B' : '#6B6B6B'
+  return tier ? (RANK_COLORS[tier] ?? '#6B6B6B') : '#6B6B6B'
 })
 
 const flexRankColor = computed(() => {
   const tier = player.value?.rank_flex_tier?.toUpperCase()
-  return tier ? RANK_COLORS[tier] ?? '#6B6B6B' : '#6B6B6B'
+  return tier ? (RANK_COLORS[tier] ?? '#6B6B6B') : '#6B6B6B'
 })
 
 function rankIconUrl(tier: string): string {
@@ -167,7 +167,6 @@ async function refreshProfile() {
   }
 }
 
-
 onMounted(async () => {
   await fetchDDragonVersion()
   try {
@@ -185,10 +184,7 @@ onMounted(async () => {
     <div v-if="loading" class="text-center text-gray-400 mt-20">Chargement...</div>
     <div v-else-if="error" class="text-center text-red-400 mt-20">{{ error }}</div>
     <div v-else-if="player" class="max-w-2xl mx-auto">
-      <div
-        class="bg-gray-800 rounded-xl overflow-hidden"
-        :style="{ borderTop: `4px solid ${rankColor}` }"
-      >
+      <div class="bg-gray-800 rounded-xl overflow-hidden" :style="{ borderTop: `4px solid ${rankColor}` }">
         <!-- Header -->
         <div class="p-6 pb-2 sm:p-8 sm:pb-2">
           <div class="flex items-start gap-4 sm:gap-6">
@@ -252,7 +248,9 @@ onMounted(async () => {
             </div>
             <div v-if="player.secondary_role" class="bg-gray-700/50 rounded-lg px-4 py-2 flex items-center gap-2">
               <img :src="ROLE_ICONS[player.secondary_role]" :alt="player.secondary_role" class="w-5 h-5" />
-              <span class="font-semibold text-gray-400">{{ ROLE_LABELS[player.secondary_role] ?? player.secondary_role }}</span>
+              <span class="font-semibold text-gray-400">{{
+                ROLE_LABELS[player.secondary_role] ?? player.secondary_role
+              }}</span>
             </div>
           </div>
 
@@ -264,7 +262,14 @@ onMounted(async () => {
               rel="noopener"
               class="inline-flex items-center gap-1.5 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 hover:text-indigo-200 text-sm px-3 py-1.5 rounded-lg transition"
             >
-              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z" /><path d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z" /></svg>
+              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z"
+                />
+                <path
+                  d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z"
+                />
+              </svg>
               OP.GG
             </a>
             <a
@@ -273,7 +278,14 @@ onMounted(async () => {
               rel="noopener"
               class="inline-flex items-center gap-1.5 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 hover:text-indigo-200 text-sm px-3 py-1.5 rounded-lg transition"
             >
-              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z" /><path d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z" /></svg>
+              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z"
+                />
+                <path
+                  d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z"
+                />
+              </svg>
               DeepLoL
             </a>
             <a
@@ -282,7 +294,14 @@ onMounted(async () => {
               rel="noopener"
               class="inline-flex items-center gap-1.5 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 hover:text-indigo-200 text-sm px-3 py-1.5 rounded-lg transition"
             >
-              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z" /><path d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z" /></svg>
+              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z"
+                />
+                <path
+                  d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z"
+                />
+              </svg>
               DPM
             </a>
             <a
@@ -291,7 +310,14 @@ onMounted(async () => {
               rel="noopener"
               class="inline-flex items-center gap-1.5 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 hover:text-indigo-200 text-sm px-3 py-1.5 rounded-lg transition"
             >
-              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z" /><path d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z" /></svg>
+              <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z"
+                />
+                <path
+                  d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z"
+                />
+              </svg>
               League of Graphs
             </a>
           </div>
@@ -299,21 +325,34 @@ onMounted(async () => {
 
         <!-- LFT Info -->
         <div class="px-6 sm:px-8 pb-6 space-y-5">
-          <div v-if="player.activities?.length || player.ambiance || (player.frequency_min != null && player.frequency_max != null)" class="flex flex-wrap gap-2.5">
+          <div
+            v-if="
+              player.activities?.length ||
+              player.ambiance ||
+              (player.frequency_min != null && player.frequency_max != null)
+            "
+            class="flex flex-wrap gap-2.5"
+          >
             <span
-              v-for="act in (player.activities ?? [])"
+              v-for="act in player.activities ?? []"
               :key="act"
               class="bg-cyan-600/20 text-cyan-300 text-base font-medium px-4 py-2 rounded-full"
             >
               {{ ACTIVITY_LABELS[act] ?? act }}
             </span>
-            <span v-if="player.ambiance" :class="[
-              'text-base font-medium px-4 py-2 rounded-full',
-              player.ambiance === 'TRYHARD' ? 'bg-purple-600/20 text-purple-300' : 'bg-green-600/20 text-green-300',
-            ]">
+            <span
+              v-if="player.ambiance"
+              :class="[
+                'text-base font-medium px-4 py-2 rounded-full',
+                player.ambiance === 'TRYHARD' ? 'bg-purple-600/20 text-purple-300' : 'bg-green-600/20 text-green-300',
+              ]"
+            >
               {{ AMBIANCE_LABELS[player.ambiance] ?? player.ambiance }}
             </span>
-            <span v-if="player.frequency_min != null && player.frequency_max != null" class="bg-gray-700/50 text-gray-300 text-base font-medium px-4 py-2 rounded-full">
+            <span
+              v-if="player.frequency_min != null && player.frequency_max != null"
+              class="bg-gray-700/50 text-gray-300 text-base font-medium px-4 py-2 rounded-full"
+            >
               {{ player.frequency_min }}-{{ player.frequency_max }}x / semaine
             </span>
           </div>
@@ -333,11 +372,7 @@ onMounted(async () => {
               :key="champ.champion_id"
               class="bg-gray-700/30 rounded-lg p-3 flex items-center gap-3"
             >
-              <img
-                :src="champIconUrl(champ.champion_name)"
-                :alt="champ.champion_name"
-                class="w-10 h-10 rounded"
-              />
+              <img :src="champIconUrl(champ.champion_name)" :alt="champ.champion_name" class="w-10 h-10 rounded" />
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between">
                   <span class="font-medium truncate">{{ champ.champion_name }}</span>

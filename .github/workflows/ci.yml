@@ -29,11 +29,12 @@ jobs:
         working-directory: bot
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -e "../shared[test]" && pip install -e ".[test]"
-      - run: pytest tests/ -v
+      - run: uv sync --extra test
+      - run: uv run pytest tests/ -v
 
   frontend:
     runs-on: ubuntu-latest
@@ -48,8 +49,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm format:check

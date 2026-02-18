@@ -1,8 +1,7 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.config import settings
 from app.database import async_session
@@ -24,7 +23,7 @@ async def sync_active_ranks(client: RiotClient | None = None) -> int:
     synced = 0
 
     async with async_session() as db:
-        stmt = select(Player).where(Player.is_lft == True)
+        stmt = select(Player).where(Player.is_lft.is_(True))
         result = await db.execute(stmt)
         players = list(result.scalars().all())
 
@@ -91,7 +90,7 @@ async def _sync_player_rank(player: Player, client: RiotClient) -> None:
         p.rank_flex_wins = rank_flex_wins
         p.rank_flex_losses = rank_flex_losses
         p.summoner_level = summoner.get("summonerLevel", p.summoner_level)
-        p.last_riot_sync = datetime.now(timezone.utc)
+        p.last_riot_sync = datetime.now(UTC)
 
         rank_data = {
             "rank_solo_tier": rank_solo_tier,
@@ -116,14 +115,14 @@ INACTIVITY_THRESHOLD = timedelta(days=14)
 
 async def deactivate_inactive() -> dict[str, list[str]]:
     """Set is_lft/is_lfp to False for players and teams inactive for 14+ days."""
-    cutoff = datetime.now(timezone.utc) - INACTIVITY_THRESHOLD
+    cutoff = datetime.now(UTC) - INACTIVITY_THRESHOLD
     deactivated_players: list[str] = []
     deactivated_teams: list[str] = []
 
     async with async_session() as db:
         player_stmt = (
             select(Player)
-            .where(Player.is_lft == True, Player.updated_at < cutoff, Player.discord_user_id.isnot(None))
+            .where(Player.is_lft.is_(True), Player.updated_at < cutoff, Player.discord_user_id.isnot(None))
         )
         result = await db.execute(player_stmt)
         players = list(result.scalars().all())
@@ -133,7 +132,7 @@ async def deactivate_inactive() -> dict[str, list[str]]:
 
         team_stmt = (
             select(Team)
-            .where(Team.is_lfp == True, Team.updated_at < cutoff)
+            .where(Team.is_lfp.is_(True), Team.updated_at < cutoff)
         )
         result = await db.execute(team_stmt)
         teams = list(result.scalars().all())

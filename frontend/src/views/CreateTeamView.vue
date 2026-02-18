@@ -54,7 +54,7 @@ const RANK_OPTIONS = [
 ]
 
 const DESC_MAX = 500
-const RANK_ORDER = RANK_OPTIONS.map(o => o.value).filter(v => v !== '')
+const RANK_ORDER = RANK_OPTIONS.map((o) => o.value).filter((v) => v !== '')
 
 function toggleActivity(value: string) {
   const idx = activities.value.indexOf(value)
@@ -69,9 +69,11 @@ function toggleRole(value: string) {
 }
 
 function validationError(): string {
-  if (frequencyMin.value > frequencyMax.value) return 'La fréquence min doit être inférieure ou égale à la fréquence max.'
+  if (frequencyMin.value > frequencyMax.value)
+    return 'La fréquence min doit être inférieure ou égale à la fréquence max.'
   if (description.value.length > DESC_MAX) return `La description ne doit pas dépasser ${DESC_MAX} caractères.`
-  if (minRank.value && maxRank.value && RANK_ORDER.indexOf(minRank.value) > RANK_ORDER.indexOf(maxRank.value)) return 'Le rang minimum doit être inférieur ou égal au rang maximum.'
+  if (minRank.value && maxRank.value && RANK_ORDER.indexOf(minRank.value) > RANK_ORDER.indexOf(maxRank.value))
+    return 'Le rang minimum doit être inférieur ou égal au rang maximum.'
   return ''
 }
 
@@ -98,21 +100,27 @@ onMounted(async () => {
 
 async function createTeam() {
   const ve = validationError()
-  if (ve) { error.value = ve; return }
+  if (ve) {
+    error.value = ve
+    return
+  }
   loading.value = true
   error.value = ''
   try {
-    const team = await api.createTeam({
-      description: description.value || undefined,
-      activities: activities.value.length > 0 ? activities.value : undefined,
-      ambiance: ambiance.value || undefined,
-      frequency_min: frequencyMin.value,
-      frequency_max: frequencyMax.value,
-      wanted_roles: wantedRoles.value.length > 0 ? wantedRoles.value : undefined,
-      min_rank: minRank.value || undefined,
-      max_rank: maxRank.value || undefined,
-      is_lfp: isLfp.value,
-    }, token.value)
+    const team = await api.createTeam(
+      {
+        description: description.value || undefined,
+        activities: activities.value.length > 0 ? activities.value : undefined,
+        ambiance: ambiance.value || undefined,
+        frequency_min: frequencyMin.value,
+        frequency_max: frequencyMax.value,
+        wanted_roles: wantedRoles.value.length > 0 ? wantedRoles.value : undefined,
+        min_rank: minRank.value || undefined,
+        max_rank: maxRank.value || undefined,
+        is_lfp: isLfp.value,
+      },
+      token.value,
+    )
     createdTeam.value = team
     teamUrl.value = `${window.location.origin}/t/${team.slug}`
   } catch (e: any) {
@@ -132,13 +140,12 @@ async function createTeam() {
         <div class="text-4xl mb-4">&#x1F512;</div>
         <h2 class="text-xl font-bold mb-3">Accès réservé</h2>
         <p class="text-gray-400">
-          Pour créer une équipe, utilise la commande <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-team-create NomEquipe</code> sur Discord.
+          Pour créer une équipe, utilise la commande
+          <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-team-create NomEquipe</code> sur Discord.
         </p>
       </div>
 
-      <div v-else-if="loading && !tokenInfo" class="text-center text-gray-400">
-        Vérification en cours...
-      </div>
+      <div v-else-if="loading && !tokenInfo" class="text-center text-gray-400">Vérification en cours...</div>
 
       <template v-else-if="!createdTeam && tokenInfo">
         <div class="bg-gray-800 rounded-xl p-4 mb-6">
@@ -213,9 +220,7 @@ async function createTeam() {
               <button
                 :class="[
                   'flex-1 py-2.5 rounded-lg text-sm font-semibold transition',
-                  ambiance === 'TRYHARD'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
+                  ambiance === 'TRYHARD' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
                 ]"
                 @click="ambiance = ambiance === 'TRYHARD' ? '' : 'TRYHARD'"
               >
@@ -224,9 +229,7 @@ async function createTeam() {
               <button
                 :class="[
                   'flex-1 py-2.5 rounded-lg text-sm font-semibold transition',
-                  ambiance === 'FUN'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
+                  ambiance === 'FUN' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
                 ]"
                 @click="ambiance = ambiance === 'FUN' ? '' : 'FUN'"
               >
@@ -288,15 +291,16 @@ async function createTeam() {
         </div>
 
         <label class="flex items-start gap-2 mt-6 cursor-pointer">
-          <input
-            v-model="consentAccepted"
-            type="checkbox"
-            class="mt-1 accent-indigo-600"
-          />
+          <input v-model="consentAccepted" type="checkbox" class="mt-1 accent-indigo-600" />
           <span class="text-sm text-gray-400">
             En créant mon équipe, j'accepte les
-            <RouterLink to="/terms" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank">CGU</RouterLink> et la
-            <RouterLink to="/privacy" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank">politique de confidentialité</RouterLink>.
+            <RouterLink to="/terms" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank"
+              >CGU</RouterLink
+            >
+            et la
+            <RouterLink to="/privacy" class="text-indigo-400 hover:text-indigo-300 underline" target="_blank"
+              >politique de confidentialité</RouterLink
+            >.
           </span>
         </label>
 
@@ -314,7 +318,10 @@ async function createTeam() {
         <div class="bg-gray-800 rounded-xl p-8 mb-6">
           <div class="text-4xl mb-4">&#x2705;</div>
           <h2 class="text-2xl font-bold mb-2">Équipe créée !</h2>
-          <p class="text-gray-400 mb-6">Ton équipe est prête. Ajoute des membres avec <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-team-roster add</code> sur Discord.</p>
+          <p class="text-gray-400 mb-6">
+            Ton équipe est prête. Ajoute des membres avec
+            <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-team-roster add</code> sur Discord.
+          </p>
 
           <div class="bg-gray-700/50 rounded-lg p-4 mb-6">
             <p class="text-sm text-gray-400 mb-1">Ton lien</p>

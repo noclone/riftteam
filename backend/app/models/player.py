@@ -57,7 +57,7 @@ class Player(Base):
     champions = relationship("PlayerChampion", back_populates="player", cascade="all, delete-orphan")
 
     __table_args__ = (
-        Index("idx_players_lft", "is_lft", postgresql_where=(is_lft == True)),
+        Index("idx_players_lft", "is_lft", postgresql_where=is_lft.is_(True)),
         Index("idx_players_role", "primary_role"),
         Index("idx_players_rank", "rank_solo_tier"),
     )

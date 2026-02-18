@@ -89,7 +89,7 @@ const RANK_OPTIONS = [
 ]
 
 const DESC_MAX = 500
-const RANK_ORDER = RANK_OPTIONS.map(o => o.value).filter(v => v !== '')
+const RANK_ORDER = RANK_OPTIONS.map((o) => o.value).filter((v) => v !== '')
 
 function toggleActivity(value: string) {
   const idx = activities.value.indexOf(value)
@@ -108,9 +108,11 @@ function validationError(): string {
   if (!name || name.length < 2) return 'Le nom doit faire au moins 2 caractères.'
   if (name.length > 50) return 'Le nom ne doit pas dépasser 50 caractères.'
   if (nameError.value) return nameError.value
-  if (frequencyMin.value > frequencyMax.value) return 'La fréquence min doit être inférieure ou égale à la fréquence max.'
+  if (frequencyMin.value > frequencyMax.value)
+    return 'La fréquence min doit être inférieure ou égale à la fréquence max.'
   if (description.value.length > DESC_MAX) return `La description ne doit pas dépasser ${DESC_MAX} caractères.`
-  if (minRank.value && maxRank.value && RANK_ORDER.indexOf(minRank.value) > RANK_ORDER.indexOf(maxRank.value)) return 'Le rang minimum doit être inférieur ou égal au rang maximum.'
+  if (minRank.value && maxRank.value && RANK_ORDER.indexOf(minRank.value) > RANK_ORDER.indexOf(maxRank.value))
+    return 'Le rang minimum doit être inférieur ou égal au rang maximum.'
   return ''
 }
 
@@ -149,24 +151,31 @@ onMounted(async () => {
 async function saveTeam() {
   if (!team.value) return
   const ve = validationError()
-  if (ve) { error.value = ve; return }
+  if (ve) {
+    error.value = ve
+    return
+  }
   saving.value = true
   error.value = ''
   success.value = ''
   try {
     const nameChanged = teamName.value.trim() !== team.value.name
-    const updated = await api.updateTeam(team.value.slug, {
-      name: nameChanged ? teamName.value.trim() : undefined,
-      description: description.value || undefined,
-      activities: activities.value,
-      ambiance: ambiance.value || undefined,
-      frequency_min: frequencyMin.value,
-      frequency_max: frequencyMax.value,
-      wanted_roles: wantedRoles.value,
-      min_rank: minRank.value || undefined,
-      max_rank: maxRank.value || undefined,
-      is_lfp: isLfp.value,
-    }, token.value)
+    const updated = await api.updateTeam(
+      team.value.slug,
+      {
+        name: nameChanged ? teamName.value.trim() : undefined,
+        description: description.value || undefined,
+        activities: activities.value,
+        ambiance: ambiance.value || undefined,
+        frequency_min: frequencyMin.value,
+        frequency_max: frequencyMax.value,
+        wanted_roles: wantedRoles.value,
+        min_rank: minRank.value || undefined,
+        max_rank: maxRank.value || undefined,
+        is_lfp: isLfp.value,
+      },
+      token.value,
+    )
     team.value = updated
     success.value = 'Équipe mise à jour !'
   } catch (e: any) {
@@ -200,22 +209,18 @@ async function deleteTeam() {
         <div class="text-4xl mb-4">&#x1F512;</div>
         <h2 class="text-xl font-bold mb-3">Accès réservé</h2>
         <p class="text-gray-400">
-          Pour modifier ton équipe, utilise la commande <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-team-edit</code> sur Discord.
+          Pour modifier ton équipe, utilise la commande
+          <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-team-edit</code> sur Discord.
         </p>
       </div>
 
-      <div v-else-if="loading" class="text-center text-gray-400">
-        Chargement de l'équipe...
-      </div>
+      <div v-else-if="loading" class="text-center text-gray-400">Chargement de l'équipe...</div>
 
       <div v-else-if="team">
         <div class="bg-gray-800 rounded-xl p-4 mb-6">
           <div class="flex items-center justify-between mb-3">
             <p class="text-sm text-gray-400">{{ team.members.length }}/5 membres</p>
-            <RouterLink
-              :to="`/t/${team.slug}`"
-              class="text-sm text-indigo-400 hover:text-indigo-300 transition"
-            >
+            <RouterLink :to="`/t/${team.slug}`" class="text-sm text-indigo-400 hover:text-indigo-300 transition">
               Voir l'équipe
             </RouterLink>
           </div>
@@ -300,9 +305,7 @@ async function deleteTeam() {
               <button
                 :class="[
                   'flex-1 py-2.5 rounded-lg text-sm font-semibold transition',
-                  ambiance === 'TRYHARD'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
+                  ambiance === 'TRYHARD' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
                 ]"
                 @click="ambiance = ambiance === 'TRYHARD' ? '' : 'TRYHARD'"
               >
@@ -311,9 +314,7 @@ async function deleteTeam() {
               <button
                 :class="[
                   'flex-1 py-2.5 rounded-lg text-sm font-semibold transition',
-                  ambiance === 'FUN'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
+                  ambiance === 'FUN' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
                 ]"
                 @click="ambiance = ambiance === 'FUN' ? '' : 'FUN'"
               >

@@ -138,9 +138,7 @@ onMounted(async () => {
             :key="key"
             :class="[
               'px-3 py-1.5 rounded-lg transition text-sm font-medium',
-              roleFilter === key
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
+              roleFilter === key ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
             ]"
             @click="setRole(key as string)"
           >
@@ -157,9 +155,7 @@ onMounted(async () => {
       </div>
 
       <div v-if="loading" class="text-center text-gray-400 mt-8">Chargement...</div>
-      <div v-else-if="players.length === 0" class="text-center text-gray-500 mt-8">
-        Aucun joueur trouvé.
-      </div>
+      <div v-else-if="players.length === 0" class="text-center text-gray-500 mt-8">Aucun joueur trouvé.</div>
       <template v-else>
         <div class="space-y-3">
           <RouterLink
@@ -178,7 +174,9 @@ onMounted(async () => {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2 min-w-0">
-                    <span class="font-semibold truncate">{{ p.riot_game_name }}<span class="text-gray-500">#{{ p.riot_tag_line }}</span></span>
+                    <span class="font-semibold truncate"
+                      >{{ p.riot_game_name }}<span class="text-gray-500">#{{ p.riot_tag_line }}</span></span
+                    >
                     <span v-if="p.primary_role" class="text-gray-400 text-sm hidden sm:inline">
                       {{ ROLE_LABELS[p.primary_role] ?? p.primary_role }}
                     </span>

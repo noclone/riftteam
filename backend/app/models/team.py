@@ -33,7 +33,7 @@ class Team(Base):
     members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
 
     __table_args__ = (
-        Index("idx_teams_lfp", "is_lfp", postgresql_where=(is_lfp == True)),
+        Index("idx_teams_lfp", "is_lfp", postgresql_where=is_lfp.is_(True)),
     )
 
     @staticmethod

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +11,7 @@ TOKEN_TTL = timedelta(minutes=30)
 
 async def _cleanup(db: AsyncSession) -> None:
     """Delete action tokens older than TOKEN_TTL."""
-    cutoff = datetime.now(timezone.utc) - TOKEN_TTL
+    cutoff = datetime.now(UTC) - TOKEN_TTL
     await db.execute(delete(ActionToken).where(ActionToken.created_at < cutoff))
 
 
@@ -38,7 +38,7 @@ async def create_token(
         tag_line=tag_line,
         slug=slug,
         team_name=team_name,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db.add(obj)
     await db.commit()

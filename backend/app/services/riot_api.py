@@ -1,6 +1,5 @@
-from shared.riot_client import RiotClient, get_champion_names
-
 from app.services.role_detector import detect_roles, fetch_ranked_matches
+from shared.riot_client import RiotClient, get_champion_names
 
 
 async def fetch_full_profile(game_name: str, tag_line: str, riot_client: RiotClient) -> dict:
