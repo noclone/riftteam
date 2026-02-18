@@ -1,869 +1,583 @@
-# RiftTeam — Architecture & Feature Spec V1
-
-> Plateforme de profils joueurs LoL pour la recherche d'équipe amateur
-> Focus communauté francophone EUW
+# RiftTeam — Architecture technique
 
 ---
 
-## 1. Vision Produit
-
-### Le problème
-Un joueur LoL amateur qui cherche une équipe (ou une équipe qui cherche un joueur) doit aujourd'hui poster un message texte libre dans un channel Discord, sans vérification, sans standardisation, et sans suivi. Le message est enterré en quelques heures. Les alternatives comme Hextech Tools LFT Image Maker génèrent des images statiques non vérifiées qui deviennent obsolètes immédiatement.
-
-### La solution V1
-Un profil joueur **alimenté par l'API Riot**, créé en 60 secondes, partageable dans Discord via un **lien avec embed riche** ou via un **bot Discord**, et toujours à jour automatiquement.
-
-### Ce que V1 n'est PAS
-- Pas un outil de matchmaking automatique (V2+)
-- Pas un scrim scheduler (V3+)
-- Pas un système de réputation (V2+)
-- Pas un concurrent de Discord pour la communication
-
----
-
-## 2. User Stories V1
-
-### Joueur LFT (Looking For Team)
-1. Je vais sur `riftteam.fr`, j'entre mon Riot ID (`Pseudo#TAG`)
-2. Le site récupère automatiquement : mon rang, mes top champions, mon rôle principal, mon winrate
-3. Je complète : mes disponibilités, ce que je cherche, mon Discord, une description libre
-4. J'obtiens un lien `https://riftteam.fr/p/Pseudo-TAG`
-5. Je colle ce lien dans un channel Discord → Discord affiche un embed propre avec mon rang, mon rôle, mes top champs
-6. Les teams intéressées consultent mon profil complet via le lien et me contactent sur Discord
-
-### Capitaine d'équipe LFP (Looking For Player)
-1. Il voit un embed dans un channel Discord → clique sur le lien
-2. Il arrive sur le profil complet du joueur : stats vérifiées, champions, historique, dispo
-3. Il évalue le joueur sur des données réelles tirées de l'API Riot
-4. Il contacte le joueur via le Discord affiché
-
-### Admin de serveur Discord
-1. Il installe le bot RiftTeam sur son serveur
-2. Ses membres peuvent taper `/profil Pseudo#TAG` pour afficher un embed
-3. Le channel LFT/LFP est plus propre : les embeds sont standardisés
-4. Il peut configurer un channel dédié où le bot poste les nouveaux profils
-
----
-
-## 3. Architecture Technique
-
-### Vue d'ensemble
+## 1. Vue d'ensemble
 
 ```
-┌─────────────────┐       ┌──────────────────┐       ┌─────────────┐
-│   Frontend       │       │   Backend API     │       │  Riot API   │
-│   Vue 3 + Vite   │──────▶│   FastAPI (Python) │──────▶│  (EUW)      │
-│   (SPA)          │◀──────│                    │◀──────│             │
-└─────────────────┘       └──────────────────┘       └─────────────┘
-                                   │
-                          ┌────────┼────────┐
-                          ▼        ▼        ▼
-                   ┌──────────┐ ┌──────┐ ┌──────────────┐
-                   │PostgreSQL│ │Pillow│ │ Discord Bot   │
-                   │          │ │(OG)  │ │ (discord.py)  │
-                   └──────────┘ └──────┘ └──────────────┘
+┌─────────────────┐       ┌──────────────────────┐       ┌─────────────┐
+│   Frontend       │       │   Backend API         │       │  Riot API   │
+│   Vue 3 + Vite   │──────▶│   FastAPI (Python)    │──────▶│  (EUW)      │
+│   (SPA)          │◀──────│                       │◀──────│             │
+└─────────────────┘       └──────────────────────┘       └─────────────┘
+                                    │
+                           ┌────────┼────────┐
+                           ▼        ▼        ▼
+                    ┌──────────┐ ┌──────┐ ┌──────────────┐
+                    │PostgreSQL│ │Pillow│ │ Discord Bot   │
+                    │          │ │(OG)  │ │ (discord.py)  │
+                    └──────────┘ └──────┘ └──────────────┘
 ```
 
-### Stack Technique
+Le bot Discord consomme l'API backend via HTTP. Il ne tape jamais directement l'API Riot ni la base de données.
 
-| Composant | Techno | Justification |
-|-----------|--------|---------------|
-| Frontend | **Vue 3 + Vite + Vue Router + Pinia** | SPA classique, rapide, stack maîtrisée |
-| UI | **Tailwind CSS** | Utility-first, rapide à prototyper, bon écosystème |
-| Backend API | **FastAPI (Python 3.11+)** | Async natif, typing, Swagger auto, sert aussi les meta tags OG |
-| ORM | **SQLAlchemy 2.0** + **Alembic** (migrations) | Mature, bien documenté, async supporté |
-| Bot Discord | **discord.py 2.x** | Même langage que le backend, partage les modèles et la logique |
-| OG Image | **Pillow** (Python) | Génération de cards PNG côté serveur |
-| BDD | **PostgreSQL 15+** | Relationnel, robuste, JSONB pour les données flexibles |
-| Cache | **Cache mémoire** (V1) → **Redis** (V2+) | Pour les données Riot API et le rate limiting |
-| Assets LoL | **Data Dragon CDN** | `https://ddragon.leagueoflegends.com/cdn/` |
-| Hébergement | **VPS** (Hetzner/OVH) ou **Railway** | Tout sur une machine : API, bot, cron jobs |
+Les actions de création/édition depuis le bot passent par un système de tokens : le bot génère un token temporaire (30 min) via l'API, puis redirige l'utilisateur vers le frontend avec ce token en query param.
 
-### Structure du projet
+---
+
+## 2. Stack technique
+
+| Composant | Techno |
+|-----------|--------|
+| Frontend | Vue 3.5 + Vite 6 + TypeScript + Vue Router + Pinia + Tailwind CSS 4 |
+| Backend API | FastAPI 0.115 (Python 3.11+) |
+| ORM | SQLAlchemy 2.0 (async) + Alembic 1.14 |
+| BDD | PostgreSQL 15 (asyncpg) |
+| Bot Discord | discord.py 2.4 + aiohttp |
+| Image OG | Pillow 11 |
+| Assets LoL | Data Dragon CDN |
+| Code partagé | Package `shared/` importé par backend et bot |
+
+---
+
+## 3. Structure du projet
 
 ```
 riftteam/
-├── frontend/                  # Vue 3 SPA
+├── frontend/
 │   ├── src/
 │   │   ├── views/
-│   │   │   ├── Home.vue            # Page d'accueil
-│   │   │   ├── CreateProfile.vue   # Formulaire de création
-│   │   │   ├── Profile.vue         # Page profil publique
-│   │   │   └── Browse.vue          # Liste des joueurs LFT
-│   │   ├── components/
-│   │   ├── stores/             # Pinia stores
-│   │   ├── api/                # Client API (axios/fetch)
-│   │   └── router/
+│   │   │   ├── HomeView.vue
+│   │   │   ├── CreateProfileView.vue
+│   │   │   ├── EditProfileView.vue
+│   │   │   ├── ProfileView.vue
+│   │   │   ├── BrowseView.vue
+│   │   │   ├── CreateTeamView.vue
+│   │   │   ├── EditTeamView.vue
+│   │   │   └── TeamView.vue
+│   │   ├── api/
+│   │   │   └── client.ts
+│   │   ├── router/
+│   │   │   └── index.ts
+│   │   └── stores/
 │   ├── package.json
-│   └── vite.config.js
+│   └── vite.config.ts
 │
-├── backend/                   # FastAPI
+├── backend/
 │   ├── app/
-│   │   ├── main.py                 # App FastAPI + route OG
-│   │   ├── config.py               # Settings & env vars
-│   │   ├── models/                 # SQLAlchemy models
+│   │   ├── main.py
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   ├── dependencies.py
+│   │   ├── middleware/
+│   │   │   └── rate_limit.py
+│   │   ├── models/
 │   │   │   ├── player.py
-│   │   │   └── champion.py
+│   │   │   ├── champion.py
+│   │   │   ├── team.py
+│   │   │   ├── scrim.py
+│   │   │   ├── snapshot.py
+│   │   │   ├── action_token.py
+│   │   │   └── guild_settings.py
 │   │   ├── routers/
-│   │   │   ├── players.py          # CRUD profils
-│   │   │   ├── riot.py             # Proxy vers Riot API
-│   │   │   └── og.py               # Génération OG image
-│   │   ├── services/
-│   │   │   ├── riot_api.py         # Client Riot API + rate limiting
-│   │   │   ├── role_detector.py    # Calcul du rôle principal
-│   │   │   ├── og_generator.py     # Génération card PNG (Pillow)
-│   │   │   └── sync.py             # Cron de sync des données
-│   │   └── utils/
-│   ├── alembic/                # Migrations DB
-│   ├── requirements.txt
-│   └── Dockerfile
+│   │   │   ├── players.py
+│   │   │   ├── teams.py
+│   │   │   ├── scrims.py
+│   │   │   ├── riot.py
+│   │   │   ├── og.py
+│   │   │   ├── tokens.py
+│   │   │   └── guild_settings.py
+│   │   ├── schemas/
+│   │   │   ├── player.py
+│   │   │   ├── team.py
+│   │   │   └── scrim.py
+│   │   └── services/
+│   │       ├── riot_api.py
+│   │       ├── role_detector.py
+│   │       ├── rank_utils.py
+│   │       ├── player_helpers.py
+│   │       ├── query_helpers.py
+│   │       ├── og_generator.py
+│   │       ├── snapshots.py
+│   │       ├── sync.py
+│   │       └── token_store.py
+│   ├── alembic/
+│   │   └── versions/             # 8 migrations
+│   ├── tests/                    # 11 fichiers de tests
+│   └── pyproject.toml
 │
-├── bot/                       # Discord Bot
-│   ├── bot.py                      # Main bot
+├── bot/
+│   ├── bot.py
+│   ├── config.py
+│   ├── constants.py
+│   ├── utils.py
 │   ├── cogs/
-│   │   ├── profile.py              # /profil command
-│   │   ├── lft.py                  # /lft command
-│   │   └── admin.py                # /setup command
-│   └── requirements.txt
+│   │   ├── profile.py
+│   │   ├── register.py
+│   │   ├── edit.py
+│   │   ├── lfp.py
+│   │   ├── team.py
+│   │   ├── matchmaking.py
+│   │   ├── scrim.py
+│   │   ├── reactivate.py
+│   │   └── help.py
+│   ├── tests/                    # 7 fichiers de tests
+│   └── pyproject.toml
 │
-├── shared/                    # Code partagé backend + bot
-│   ├── riot_client.py              # Client Riot API réutilisable
-│   ├── models.py                   # Modèles de données partagés
-│   └── constants.py                # Rangs, rôles, couleurs, etc.
+├── shared/
+│   ├── riot_client.py
+│   ├── constants.py
+│   └── format.py
 │
 ├── docker-compose.yml
-└── README.md
+├── .env.example
+└── CLAUDE.md
 ```
 
 ---
 
-## 4. Modèle de Données
+## 4. Modèle de données
 
-### Table `players`
-```sql
-CREATE TABLE players (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  
-  -- Identité Riot
-  riot_puuid      VARCHAR(78) UNIQUE NOT NULL,
-  riot_game_name  VARCHAR(16) NOT NULL,
-  riot_tag_line   VARCHAR(5) NOT NULL,
-  region          VARCHAR(10) DEFAULT 'EUW1',
-  
-  -- Données Riot (auto-fetched via API)
-  rank_solo_tier      VARCHAR(15),     -- IRON, BRONZE, SILVER, GOLD, PLATINUM, EMERALD, DIAMOND, MASTER, GRANDMASTER, CHALLENGER
-  rank_solo_division  VARCHAR(5),      -- I, II, III, IV
-  rank_solo_lp        INTEGER,
-  rank_solo_wins      INTEGER,
-  rank_solo_losses    INTEGER,
-  rank_flex_tier      VARCHAR(15),
-  rank_flex_division  VARCHAR(5),
-  primary_role        VARCHAR(10),     -- TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY
-  secondary_role      VARCHAR(10),
-  summoner_level      INTEGER,
-  profile_icon_id     INTEGER,
-  
-  -- Données déclaratives (saisies par le joueur)
-  discord_username    VARCHAR(50),
-  description         TEXT,
-  looking_for         VARCHAR(20),     -- TEAM, DUO, CLASH, SCRIM, ANY
-  ambition            VARCHAR(20),     -- CHILL, IMPROVE, COMPETITIVE, TRYHARD
-  languages           TEXT[] DEFAULT ARRAY['fr'],
-  
-  -- Disponibilités
-  availability        JSONB,
-  -- Format: {"lundi": ["soir"], "mercredi": ["soir"], "samedi": ["aprem", "soir"], "dimanche": ["aprem", "soir"]}
-  
-  -- État
-  is_lft              BOOLEAN DEFAULT TRUE,     -- actuellement en recherche
-  last_riot_sync      TIMESTAMPTZ,
-  created_at          TIMESTAMPTZ DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ DEFAULT NOW(),
-  
-  -- Slug pour l'URL
-  slug                VARCHAR(25) GENERATED ALWAYS AS (riot_game_name || '-' || riot_tag_line) STORED UNIQUE
-);
+### `players`
 
-CREATE INDEX idx_players_lft ON players (is_lft) WHERE is_lft = TRUE;
-CREATE INDEX idx_players_role ON players (primary_role);
-CREATE INDEX idx_players_rank ON players (rank_solo_tier);
-```
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | UUID PK | |
+| riot_puuid | VARCHAR(78) UNIQUE | Identifiant Riot permanent |
+| riot_game_name | VARCHAR(16) | |
+| riot_tag_line | VARCHAR(5) | |
+| region | VARCHAR(10) | Défaut `EUW1` |
+| slug | VARCHAR(25) UNIQUE | `{game_name}-{tag_line}`, utilisé dans les URLs |
+| rank_solo_tier | VARCHAR(15) | IRON → CHALLENGER |
+| rank_solo_division | VARCHAR(5) | I → IV |
+| rank_solo_lp | INTEGER | |
+| rank_solo_wins | INTEGER | |
+| rank_solo_losses | INTEGER | |
+| rank_flex_tier | VARCHAR(15) | |
+| rank_flex_division | VARCHAR(5) | |
+| rank_flex_lp | INTEGER | |
+| rank_flex_wins | INTEGER | |
+| rank_flex_losses | INTEGER | |
+| peak_solo_tier | VARCHAR(15) | Meilleur rang atteint (saison) |
+| peak_solo_division | VARCHAR(5) | |
+| peak_solo_lp | INTEGER | |
+| primary_role | VARCHAR(10) | TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY |
+| secondary_role | VARCHAR(10) | Si ≥ 20% des games |
+| summoner_level | INTEGER | |
+| profile_icon_id | INTEGER | |
+| discord_user_id | VARCHAR(20) UNIQUE | `NULL` si profil créé uniquement via roster team |
+| discord_username | VARCHAR(50) | |
+| description | TEXT | |
+| activities | VARCHAR[] | SCRIMS, TOURNOIS, LAN, FLEX, CLASH |
+| ambiance | VARCHAR(10) | FUN, TRYHARD |
+| frequency_min | INTEGER | Fréquence min par semaine |
+| frequency_max | INTEGER | Fréquence max par semaine |
+| is_lft | BOOLEAN | En recherche d'équipe |
+| last_riot_sync | TIMESTAMPTZ | |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
 
-### Table `player_champions`
-```sql
-CREATE TABLE player_champions (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  player_id       UUID REFERENCES players(id) ON DELETE CASCADE,
-  champion_id     INTEGER NOT NULL,
-  champion_name   VARCHAR(30) NOT NULL,
-  
-  -- Données de mastery (champion-mastery-v4)
-  mastery_level   INTEGER,
-  mastery_points  INTEGER,
-  
-  -- Données calculées depuis le match history
-  games_played    INTEGER DEFAULT 0,     -- sur les 20 derniers ranked
-  wins            INTEGER DEFAULT 0,
-  losses          INTEGER DEFAULT 0,
-  avg_kills       DECIMAL(4,1),
-  avg_deaths      DECIMAL(4,1),
-  avg_assists     DECIMAL(4,1),
-  
-  UNIQUE(player_id, champion_id)
-);
+Index partiels : `idx_players_lft` (WHERE is_lft = TRUE), `idx_players_role`, `idx_players_rank`.
 
-CREATE INDEX idx_champions_player ON player_champions (player_id);
-```
+### `player_champions`
 
----
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | UUID PK | |
+| player_id | UUID FK → players | CASCADE |
+| champion_id | INTEGER | ID Data Dragon |
+| champion_name | VARCHAR(30) | |
+| mastery_level | INTEGER | |
+| mastery_points | INTEGER | |
+| games_played | INTEGER | Sur les matchs récents de la saison |
+| wins | INTEGER | |
+| losses | INTEGER | |
+| avg_kills | NUMERIC(4,1) | |
+| avg_deaths | NUMERIC(4,1) | |
+| avg_assists | NUMERIC(4,1) | |
 
-## 5. API Riot — Intégration
+Contrainte unique : `(player_id, champion_id)`.
 
-### Endpoints utilisés
+### `teams`
 
-| Endpoint | Données récupérées | Quand |
-|----------|-------------------|-------|
-| `GET /riot/account/v1/accounts/by-riot-id/{name}/{tag}` | PUUID | Création de profil |
-| `GET /lol/summoner/v4/summoners/by-puuid/{puuid}` | Niveau, icône | Création + sync |
-| `GET /lol/league/v4/entries/by-summoner/{summonerId}` | Rang solo/flex, wins, losses | Création + sync |
-| `GET /lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}/top?count=10` | Top 10 champions mastery | Création + sync |
-| `GET /lol/match/v5/matches/by-puuid/{puuid}/ids?queue=420&count=20` | IDs des 20 derniers matchs ranked solo | Création + sync |
-| `GET /lol/match/v5/matches/{matchId}` | Détails du match (rôle, champion, KDA) | Création + sync |
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | UUID PK | |
+| name | VARCHAR(50) | |
+| slug | VARCHAR(55) UNIQUE | |
+| captain_discord_id | VARCHAR(20) UNIQUE | Un seul capitaine par équipe, une seule équipe par capitaine |
+| captain_discord_name | VARCHAR(50) | |
+| description | TEXT | |
+| activities | VARCHAR[] | |
+| ambiance | VARCHAR(10) | |
+| frequency_min | INTEGER | |
+| frequency_max | INTEGER | |
+| wanted_roles | VARCHAR[] | Rôles recherchés |
+| min_rank | VARCHAR(15) | Rang minimum accepté |
+| max_rank | VARCHAR(15) | Rang maximum accepté |
+| is_lfp | BOOLEAN | En recrutement |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
 
-### Calcul du rôle principal
+Index partiel : `idx_teams_lfp` (WHERE is_lfp = TRUE).
 
-```python
-# services/role_detector.py
+### `team_members`
 
-async def detect_roles(puuid: str, riot_client: RiotClient) -> tuple[str, str | None]:
-    """
-    Détermine le rôle principal et secondaire d'un joueur
-    à partir de ses matchs récents.
-    
-    Priorité des queues :
-    1. Ranked Solo/Duo (queue=420) — 20 derniers matchs
-    2. Si < 10 matchs solo : compléter avec Ranked Flex (queue=440)
-    3. Si toujours < 10 : compléter avec Normal Draft (queue=400)
-    """
-    
-    MINIMUM_GAMES = 10
-    
-    # 1. Fetch ranked solo en priorité
-    match_ids = await riot_client.get_match_ids(puuid, queue=420, count=20)
-    
-    # 2. Compléter avec flex si pas assez
-    if len(match_ids) < MINIMUM_GAMES:
-        flex_ids = await riot_client.get_match_ids(puuid, queue=440, count=20 - len(match_ids))
-        match_ids.extend(flex_ids)
-    
-    # 3. Compléter avec normales si toujours pas assez
-    if len(match_ids) < MINIMUM_GAMES:
-        normal_ids = await riot_client.get_match_ids(puuid, queue=400, count=20 - len(match_ids))
-        match_ids.extend(normal_ids)
-    
-    # 4. Fetch les détails de chaque match et extraire le rôle
-    role_counts = {"TOP": 0, "JUNGLE": 0, "MIDDLE": 0, "BOTTOM": 0, "UTILITY": 0}
-    champion_stats = {}  # champion_name -> {games, wins, kills, deaths, assists}
-    
-    for match_id in match_ids:
-        match = await riot_client.get_match(match_id)
-        participant = find_participant(match, puuid)
-        
-        if participant:
-            role = participant["teamPosition"]
-            if role in role_counts:
-                role_counts[role] += 1
-            
-            # Collecter les stats par champion en même temps
-            champ = participant["championName"]
-            if champ not in champion_stats:
-                champion_stats[champ] = {"games": 0, "wins": 0, "kills": 0, "deaths": 0, "assists": 0}
-            champion_stats[champ]["games"] += 1
-            champion_stats[champ]["wins"] += 1 if participant["win"] else 0
-            champion_stats[champ]["kills"] += participant["kills"]
-            champion_stats[champ]["deaths"] += participant["deaths"]
-            champion_stats[champ]["assists"] += participant["assists"]
-    
-    # 5. Déterminer les rôles
-    sorted_roles = sorted(role_counts.items(), key=lambda x: x[1], reverse=True)
-    primary_role = sorted_roles[0][0] if sorted_roles[0][1] > 0 else None
-    
-    total_games = sum(role_counts.values())
-    secondary_role = None
-    if total_games > 0 and sorted_roles[1][1] / total_games >= 0.20:  # Au moins 20% des games
-        secondary_role = sorted_roles[1][0]
-    
-    return primary_role, secondary_role, champion_stats
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | UUID PK | |
+| team_id | UUID FK → teams | CASCADE |
+| player_id | UUID FK → players UNIQUE | CASCADE, un joueur ne peut être que dans une seule équipe |
+| role | VARCHAR(10) | TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY |
 
+### `scrims`
 
-def find_participant(match_data: dict, puuid: str) -> dict | None:
-    """Trouve les données du joueur dans un match."""
-    for participant in match_data["info"]["participants"]:
-        if participant["puuid"] == puuid:
-            return participant
-    return None
-```
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | UUID PK | |
+| team_id | UUID FK → teams | CASCADE |
+| captain_discord_id | VARCHAR(20) | |
+| min_rank | VARCHAR(15) | |
+| max_rank | VARCHAR(15) | |
+| scheduled_at | TIMESTAMPTZ | Date et heure du scrim |
+| format | VARCHAR(10) | BO1, BO3, BO5 |
+| game_count | INTEGER | Nombre de games (pour format custom type G3) |
+| fearless | BOOLEAN | Mode fearless (draft sans champion en commun) |
+| is_active | BOOLEAN | |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
 
-### Rate Limiting côté client
+Index : `idx_scrims_active_scheduled` (is_active, scheduled_at). Un nouveau scrim désactive automatiquement les précédents de la même équipe.
 
-```python
-# shared/riot_client.py
+### `rank_snapshots`
 
-import asyncio
-import time
-from collections import deque
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | UUID PK | |
+| player_id | UUID FK → players | CASCADE |
+| queue_type | VARCHAR(20) | RANKED_SOLO_5x5 ou RANKED_FLEX_SR |
+| tier | VARCHAR(15) | |
+| division | VARCHAR(5) | |
+| lp | INTEGER | |
+| wins | INTEGER | |
+| losses | INTEGER | |
+| recorded_at | TIMESTAMPTZ | |
 
-class RiotClient:
-    """
-    Client Riot API avec rate limiting intégré.
-    
-    Limites clé de dev : 20 req/s, 100 req/2min
-    Limites clé prod :  variable, typiquement plus élevé
-    """
-    
-    def __init__(self, api_key: str, requests_per_second: int = 18, requests_per_2min: int = 95):
-        self.api_key = api_key
-        self.base_url = "https://europe.api.riotgames.com"
-        self.euw_url = "https://euw1.api.riotgames.com"
-        self.short_window = deque()   # timestamps des requêtes (1s)
-        self.long_window = deque()    # timestamps des requêtes (2min)
-        self.rps = requests_per_second
-        self.rpm = requests_per_2min
-    
-    async def _wait_for_rate_limit(self):
-        """Attend si nécessaire pour respecter les rate limits."""
-        now = time.time()
-        
-        # Nettoyer les vieilles entrées
-        while self.short_window and now - self.short_window[0] > 1:
-            self.short_window.popleft()
-        while self.long_window and now - self.long_window[0] > 120:
-            self.long_window.popleft()
-        
-        # Attendre si on dépasse les limites
-        if len(self.short_window) >= self.rps:
-            wait = 1 - (now - self.short_window[0])
-            if wait > 0:
-                await asyncio.sleep(wait)
-        
-        if len(self.long_window) >= self.rpm:
-            wait = 120 - (now - self.long_window[0])
-            if wait > 0:
-                await asyncio.sleep(wait)
-        
-        now = time.time()
-        self.short_window.append(now)
-        self.long_window.append(now)
-    
-    async def _request(self, url: str) -> dict:
-        await self._wait_for_rate_limit()
-        async with aiohttp.ClientSession() as session:
-            headers = {"X-Riot-Token": self.api_key}
-            async with session.get(url, headers=headers) as resp:
-                if resp.status == 429:
-                    retry_after = int(resp.headers.get("Retry-After", 5))
-                    await asyncio.sleep(retry_after)
-                    return await self._request(url)  # Retry
-                resp.raise_for_status()
-                return await resp.json()
-    
-    async def get_account_by_riot_id(self, game_name: str, tag_line: str) -> dict:
-        url = f"{self.base_url}/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}"
-        return await self._request(url)
-    
-    async def get_summoner_by_puuid(self, puuid: str) -> dict:
-        url = f"{self.euw_url}/lol/summoner/v4/summoners/by-puuid/{puuid}"
-        return await self._request(url)
-    
-    async def get_league_entries(self, summoner_id: str) -> list:
-        url = f"{self.euw_url}/lol/league/v4/entries/by-summoner/{summoner_id}"
-        return await self._request(url)
-    
-    async def get_top_masteries(self, puuid: str, count: int = 10) -> list:
-        url = f"{self.euw_url}/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}/top?count={count}"
-        return await self._request(url)
-    
-    async def get_match_ids(self, puuid: str, queue: int = 420, count: int = 20) -> list:
-        url = f"{self.base_url}/lol/match/v5/matches/by-puuid/{puuid}/ids?queue={queue}&count={count}"
-        return await self._request(url)
-    
-    async def get_match(self, match_id: str) -> dict:
-        url = f"{self.base_url}/lol/match/v5/matches/{match_id}"
-        return await self._request(url)
-```
+Index : `idx_rank_snapshots_player_time` (player_id, recorded_at). Enregistré à chaque sync et chaque refresh.
 
-### Stratégie de synchronisation
+### `champion_snapshots`
 
-| Déclencheur | Données rafraîchies | Coût API | Fréquence max |
-|-------------|---------------------|----------|---------------|
-| Création de profil | Tout (rang, masteries, match history) | ~25 appels | 1 fois |
-| Bouton "Rafraîchir" sur le profil | Tout | ~25 appels | 1x par heure (cooldown) |
-| Cron job | Rang uniquement (profils actifs) | 2 appels/profil | Toutes les 12h |
-| Consultation profil (si données > 6h) | Rang uniquement | 2 appels | Lazy, à la volée |
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | UUID PK | |
+| player_id | UUID FK → players | CASCADE |
+| champions | JSONB | Snapshot complet des champions et stats |
+| primary_role | VARCHAR(10) | |
+| secondary_role | VARCHAR(10) | |
+| recorded_at | TIMESTAMPTZ | |
 
-Budget estimé pour 1000 profils actifs :
-- Cron : 1000 × 2 appels × 2/jour = **4 000 appels/jour**
-- Consultations lazy : ~500/jour × 2 appels = **1 000 appels/jour**
-- Rafraîchissements manuels : ~100/jour × 25 appels = **2 500 appels/jour**
-- **Total : ~7 500 appels/jour** → très confortable en clé Production
+Index : `idx_champion_snapshots_player_time` (player_id, recorded_at).
+
+### `action_tokens`
+
+| Colonne | Type | Description |
+|---------|------|-------------|
+| token | VARCHAR(32) PK | UUID hex |
+| action | VARCHAR(20) | create, edit, team_create, team_edit |
+| discord_user_id | VARCHAR(20) | |
+| discord_username | VARCHAR(100) | |
+| game_name | VARCHAR(50) | Optionnel selon l'action |
+| tag_line | VARCHAR(10) | |
+| slug | VARCHAR(100) | |
+| team_name | VARCHAR(100) | |
+| created_at | TIMESTAMPTZ | |
+
+TTL de 30 minutes. Les tokens expirés sont nettoyés automatiquement. Les tokens `create` et `team_create` sont consommés (supprimés) à l'usage. Les tokens `edit` et `team_edit` sont réutilisables pendant leur durée de vie.
+
+### `guild_settings`
+
+| Colonne | Type | Description |
+|---------|------|-------------|
+| guild_id | VARCHAR(20) PK | Discord guild ID |
+| announcement_channel_id | VARCHAR(20) | Channel pour les annonces automatiques |
 
 ---
 
-## 6. Embeds Discord — Deux Mécanismes
+## 5. Endpoints API
 
-### A. Embed via lien (OpenGraph)
+Base : `/api`
 
-Quand quelqu'un colle `https://riftteam.fr/p/Pseudo-TAG` dans Discord, le crawler Discord (`Discordbot` user-agent) fetch l'URL. FastAPI détecte le crawler et lui sert un HTML minimal avec les meta tags.
+### Players
 
-```python
-# routers/og.py
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| POST | `/players?token=` | Token (create) | Crée un profil. Fetch Riot API, enregistre snapshots, calcule peak rank |
+| GET | `/players/{slug}` | — | Récupère un profil. Déclenche un lazy refresh si données > 6h |
+| GET | `/players` | — | Liste avec filtres : `is_lft`, `role`, `min_rank`, `max_rank`, `limit`, `offset` |
+| GET | `/players/by-discord/{discord_user_id}` | Bot secret | Lookup par Discord ID |
+| PATCH | `/players/{slug}?token=` | Token (edit) | Met à jour les données déclaratives |
+| DELETE | `/players/{slug}?token=` | Token (edit) | Supprime un profil |
+| POST | `/players/{slug}/refresh` | Bot secret | Rafraîchit via Riot API (cooldown 1h) |
+| POST | `/players/{slug}/reactivate` | Bot secret | Réactive un profil désactivé pour inactivité |
 
-from fastapi import Request
-from fastapi.responses import HTMLResponse, FileResponse
+### Teams
 
-CRAWLER_BOTS = ["discordbot", "twitterbot", "facebookexternalhit", "telegrambot", "slackbot"]
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| POST | `/teams?token=` | Token (team_create) | Crée une équipe |
+| GET | `/teams/{slug}` | — / Token | Publique si is_lfp=true, sinon nécessite token team_edit |
+| GET | `/teams` | — | Liste avec filtres : `is_lfp`, `role`, `min_rank`, `max_rank`, `limit`, `offset` |
+| GET | `/teams/by-captain/{discord_user_id}` | Bot secret | Lookup par capitaine |
+| PATCH | `/teams/{slug}?token=` | Token (team_edit) | Met à jour |
+| DELETE | `/teams/{slug}?token=` | Token (team_edit) | Supprime |
+| POST | `/teams/{slug}/members` | Bot secret | Ajoute un joueur au roster (crée un profil léger si inexistant via Riot API) |
+| DELETE | `/teams/{slug}/members/{player_slug}` | Bot secret | Retire un joueur du roster |
+| POST | `/teams/{slug}/reactivate` | Bot secret | Réactive |
 
-@app.get("/p/{slug}")
-async def player_page(request: Request, slug: str):
-    ua = request.headers.get("user-agent", "").lower()
-    is_crawler = any(bot in ua for bot in CRAWLER_BOTS)
-    
-    if is_crawler:
-        player = await get_player_by_slug(slug)
-        if not player:
-            return HTMLResponse("<html><head><title>Joueur non trouvé</title></head></html>", status_code=404)
-        
-        rank = format_rank(player)        # "Emerald 2 — 58% WR"
-        role = format_role(player)        # "🎯 Jungle"
-        champs = format_champions(player) # "Lee Sin · Vi · Viego"
-        color = rank_to_hex_color(player) # "#50C878" (vert pour Emerald)
-        og_image = f"https://riftteam.fr/api/og/{slug}.png"
-        
-        html = f"""<!DOCTYPE html>
-        <html>
-        <head>
-            <meta property="og:site_name" content="RiftTeam" />
-            <meta property="og:title" content="{player.riot_game_name}#{player.riot_tag_line} — {rank}" />
-            <meta property="og:description" content="{role} · {champs} · {player.looking_for_label}" />
-            <meta property="og:image" content="{og_image}" />
-            <meta property="og:image:width" content="1200" />
-            <meta property="og:image:height" content="630" />
-            <meta property="og:url" content="https://riftteam.fr/p/{slug}" />
-            <meta property="og:type" content="profile" />
-            <meta name="theme-color" content="{color}" />
-        </head>
-        <body></body>
-        </html>"""
-        return HTMLResponse(html)
-    
-    # Navigateur normal → servir la SPA Vue
-    return FileResponse("frontend/dist/index.html")
-```
+### Scrims
 
-### B. Embed via bot Discord
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| POST | `/scrims` | Bot secret | Crée un scrim (désactive les précédents de l'équipe) |
+| GET | `/scrims` | — | Liste avec filtres : `min_rank`, `max_rank`, `scheduled_date`, `format`, `hour_min`, `hour_max` |
+| DELETE | `/scrims/{scrim_id}` | Bot secret | Annule un scrim |
+| DELETE | `/scrims/by-team/{team_slug}` | Bot secret | Annule tous les scrims actifs d'une équipe |
 
-```python
-# bot/cogs/profile.py
+### Tokens
 
-import discord
-from discord import app_commands
-from discord.ext import commands
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| POST | `/tokens` | Bot secret | Génère un token d'action (retourne token + URL frontend) |
+| GET | `/tokens/{token}/validate` | — | Valide un token et retourne ses métadonnées |
 
-RANK_COLORS = {
-    "IRON": 0x6B6B6B, "BRONZE": 0x8B4513, "SILVER": 0xC0C0C0,
-    "GOLD": 0xFFD700, "PLATINUM": 0x00CED1, "EMERALD": 0x50C878,
-    "DIAMOND": 0x4169E1, "MASTER": 0x9B30FF, "GRANDMASTER": 0xDC143C,
-    "CHALLENGER": 0xF0E68C,
-}
+### Autres
 
-ROLE_EMOJIS = {
-    "TOP": "🛡️", "JUNGLE": "🌿", "MIDDLE": "🔥", "BOTTOM": "🏹", "UTILITY": "💫"
-}
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| GET | `/riot/check/{name}/{tag}` | — | Vérifie l'existence d'un Riot ID |
+| GET | `/guild-settings/{guild_id}` | — | Paramètres d'un serveur Discord |
+| PUT | `/guild-settings/{guild_id}` | Bot secret | Met à jour les paramètres |
+| GET | `/health` | — | Health check (DB incluse) |
+| POST | `/maintenance/deactivate-inactive` | Bot secret | Désactive les profils/teams inactifs > 14j |
 
-class ProfileCog(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-        self.api_base = "https://riftteam.fr/api"
-    
-    @app_commands.command(name="profil", description="Afficher le profil RiftTeam d'un joueur")
-    @app_commands.describe(riot_id="Riot ID du joueur (ex: Pseudo#TAG)")
-    async def profil(self, interaction: discord.Interaction, riot_id: str):
-        await interaction.response.defer()
-        
-        # Parse le Riot ID
-        if "#" not in riot_id:
-            await interaction.followup.send("❌ Format invalide. Utilise `Pseudo#TAG`.", ephemeral=True)
-            return
-        
-        name, tag = riot_id.rsplit("#", 1)
-        slug = f"{name}-{tag}"
-        
-        # Fetch le profil depuis l'API backend
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{self.api_base}/players/{slug}") as resp:
-                if resp.status == 404:
-                    await interaction.followup.send(
-                        f"❌ Aucun profil RiftTeam trouvé pour `{riot_id}`.\n"
-                        f"👉 Crée ton profil sur https://riftteam.fr",
-                        ephemeral=True
-                    )
-                    return
-                player = await resp.json()
-        
-        # Construire l'embed
-        rank_tier = player.get("rank_solo_tier", "UNRANKED")
-        color = RANK_COLORS.get(rank_tier, 0x808080)
-        
-        rank_display = format_rank_display(player)
-        role_emoji = ROLE_EMOJIS.get(player.get("primary_role", ""), "❓")
-        role_name = translate_role(player.get("primary_role"))
-        
-        # Top 3 champions
-        champions = player.get("top_champions", [])[:3]
-        champ_display = " · ".join([f"**{c['name']}** ({c['win_rate']}%)" for c in champions]) or "Aucune donnée"
-        
-        # Disponibilités
-        availability = format_availability(player.get("availability", {}))
-        
-        embed = discord.Embed(
-            title=f"{player['riot_game_name']}#{player['riot_tag_line']}",
-            url=f"https://riftteam.fr/p/{slug}",
-            color=color
-        )
-        
-        embed.add_field(name="Rang", value=rank_display, inline=True)
-        embed.add_field(name="Rôle", value=f"{role_emoji} {role_name}", inline=True)
-        embed.add_field(name="Cherche", value=player.get("looking_for_label", "—"), inline=True)
-        embed.add_field(name="Champions", value=champ_display, inline=False)
-        
-        if availability:
-            embed.add_field(name="Disponibilités", value=availability, inline=False)
-        
-        if player.get("description"):
-            desc = player["description"][:150]
-            if len(player["description"]) > 150:
-                desc += "..."
-            embed.add_field(name="Description", value=desc, inline=False)
-        
-        # Thumbnail : icône de rang
-        rank_icon_url = get_rank_icon_url(rank_tier)
-        if rank_icon_url:
-            embed.set_thumbnail(url=rank_icon_url)
-        
-        embed.set_footer(text=f"RiftTeam · Mis à jour {format_relative_time(player['last_riot_sync'])}")
-        
-        await interaction.followup.send(embed=embed)
-```
+### OpenGraph (hors préfixe `/api`)
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/p/{slug}` | Crawler → HTML avec meta tags OG. Navigateur → redirect vers la SPA |
+| GET | `/t/{slug}` | Idem pour les équipes |
+| GET | `/api/og/{slug}.png` | Image OG joueur (PNG 1200×630, cache mémoire 6h, max 500 entrées) |
+| GET | `/api/og/team/{slug}.png` | Image OG équipe |
 
 ---
 
-## 7. Génération de l'Image OG (Card de Profil)
+## 6. Commandes bot Discord
 
-### Endpoint : `GET /api/og/{slug}.png`
+Toutes les commandes utilisent le préfixe `/rt-`. Le bot communique exclusivement avec l'API backend via HTTP (session `aiohttp` avec header `X-Bot-Secret`).
 
-FastAPI génère une image PNG 1200×630px avec Pillow.
+### Profil
 
-```python
-# services/og_generator.py
+| Commande | Cog | Description |
+|----------|-----|-------------|
+| `/rt-profil-create` | register | Génère un token create → envoie un lien vers le frontend |
+| `/rt-profil-show <riot_id>` | profile | Affiche un embed riche du profil |
+| `/rt-profil-edit` | edit | Génère un token edit → lien vers le frontend |
+| `/rt-profil-post` | profile | Partage le profil dans le channel (non éphémère) |
+| `/rt-profil-enable-lft` | reactivate | Réactive le statut LFT |
 
-from PIL import Image, ImageDraw, ImageFont
-from io import BytesIO
-import aiohttp
+### Équipe
 
-# Pré-charger les fonts et assets
-FONT_TITLE = ImageFont.truetype("assets/fonts/Inter-Bold.ttf", 48)
-FONT_RANK = ImageFont.truetype("assets/fonts/Inter-SemiBold.ttf", 36)
-FONT_BODY = ImageFont.truetype("assets/fonts/Inter-Regular.ttf", 28)
-FONT_SMALL = ImageFont.truetype("assets/fonts/Inter-Regular.ttf", 22)
+| Commande | Cog | Description |
+|----------|-----|-------------|
+| `/rt-team-create` | team | Génère un token team_create → lien vers le frontend |
+| `/rt-team-edit` | team | Génère un token team_edit → lien vers le frontend |
+| `/rt-team-roster add <riot_id> <role>` | team | Ajoute un joueur au roster |
+| `/rt-team-roster remove <riot_id>` | team | Retire un joueur |
+| `/rt-team-post` | team | Partage l'équipe dans le channel |
+| `/rt-team-enable-lfp` | reactivate | Réactive le statut LFP |
 
-# Couleurs de fond par rang
-RANK_GRADIENTS = {
-    "IRON":        ((60, 60, 60), (40, 40, 40)),
-    "BRONZE":      ((80, 50, 20), (50, 30, 10)),
-    "SILVER":      ((140, 150, 160), (100, 110, 120)),
-    "GOLD":        ((160, 130, 40), (120, 95, 20)),
-    "PLATINUM":    ((20, 120, 130), (10, 80, 90)),
-    "EMERALD":     ((30, 130, 80), (15, 90, 55)),
-    "DIAMOND":     ((40, 70, 160), (20, 40, 120)),
-    "MASTER":      ((100, 30, 160), (70, 15, 120)),
-    "GRANDMASTER": ((170, 30, 50), (120, 15, 30)),
-    "CHALLENGER":  ((180, 160, 50), (140, 120, 30)),
-}
+### Recherche
 
-async def generate_og_card(player: dict) -> bytes:
-    """Génère une card PNG 1200x630 pour un joueur."""
-    
-    rank_tier = player.get("rank_solo_tier", "UNRANKED")
-    colors = RANK_GRADIENTS.get(rank_tier, ((50, 50, 50), (30, 30, 30)))
-    
-    # Créer l'image de base
-    img = Image.new("RGB", (1200, 630), colors[0])
-    draw = ImageDraw.Draw(img)
-    
-    # Pseudo#TAG
-    riot_id = f"{player['riot_game_name']}#{player['riot_tag_line']}"
-    draw.text((60, 40), riot_id, font=FONT_TITLE, fill="white")
-    
-    # Rang
-    rank_text = format_rank(player)  # "Emerald 2 — 58% WR — 245W/178L"
-    draw.text((60, 110), rank_text, font=FONT_RANK, fill=(255, 255, 255, 200))
-    
-    # Rôle
-    role_text = f"Main {translate_role(player.get('primary_role', ''))}"
-    draw.text((60, 170), role_text, font=FONT_BODY, fill=(255, 255, 255, 180))
-    
-    # Champions (icônes + noms)
-    y_champs = 240
-    x = 60
-    for i, champ in enumerate(player.get("top_champions", [])[:4]):
-        # Charger l'icône du champion depuis Data Dragon (cache local)
-        icon = await load_champion_icon(champ["name"])
-        if icon:
-            icon = icon.resize((64, 64))
-            img.paste(icon, (x, y_champs))
-        
-        draw.text((x, y_champs + 70), champ["name"], font=FONT_SMALL, fill="white")
-        wr_text = f"{champ['win_rate']}% WR"
-        draw.text((x, y_champs + 95), wr_text, font=FONT_SMALL, fill=(200, 200, 200))
-        x += 150
-    
-    # Ce que le joueur cherche
-    if player.get("looking_for_label"):
-        draw.text((60, 420), f"🔍 {player['looking_for_label']}", font=FONT_BODY, fill="white")
-    
-    # Disponibilités
-    if player.get("availability_summary"):
-        draw.text((60, 470), f"📅 {player['availability_summary']}", font=FONT_BODY, fill=(200, 200, 200))
-    
-    # Logo RiftTeam en bas à droite
-    draw.text((1000, 580), "riftteam.fr", font=FONT_SMALL, fill=(150, 150, 150))
-    
-    # Icône de rang en haut à droite
-    rank_icon = await load_rank_icon(rank_tier)
-    if rank_icon:
-        rank_icon = rank_icon.resize((120, 120))
-        img.paste(rank_icon, (1040, 30), rank_icon)  # avec transparence
-    
-    # Exporter en PNG
-    buffer = BytesIO()
-    img.save(buffer, format="PNG", quality=95)
-    buffer.seek(0)
-    return buffer.getvalue()
-```
+| Commande | Cog | Description |
+|----------|-----|-------------|
+| `/rt-lfp [role] [min_rank] [max_rank]` | lfp | Liste paginée des joueurs LFT avec boutons de contact |
+| `/rt-lft [role] [min_rank] [max_rank]` | matchmaking | Liste paginée des équipes LFP |
+| `/rt-apply <team>` | matchmaking | Postule à une équipe (DM au capitaine) |
+| `/rt-recruit <riot_id>` | matchmaking | Recrute un joueur (DM au joueur) |
 
-### Route FastAPI pour servir l'image
+### Scrims
 
-```python
-# routers/og.py
+| Commande | Cog | Description |
+|----------|-----|-------------|
+| `/rt-scrim-post` | scrim | Publie un scrim (date, heure, format, rang, fearless) |
+| `/rt-scrim-search [date] [min_rank] [max_rank] [format] [hour_min] [hour_max]` | scrim | Recherche paginée de scrims |
+| `/rt-scrim-cancel` | scrim | Annule les scrims actifs de l'équipe |
 
-from fastapi import Response
-from services.og_generator import generate_og_card
+### Autre
 
-# Cache simple en mémoire (dict) — remplacer par Redis en V2
-og_cache: dict[str, tuple[bytes, float]] = {}
-OG_CACHE_TTL = 6 * 3600  # 6 heures
-
-@app.get("/api/og/{slug}.png")
-async def og_image(slug: str):
-    # Vérifier le cache
-    if slug in og_cache:
-        data, cached_at = og_cache[slug]
-        if time.time() - cached_at < OG_CACHE_TTL:
-            return Response(content=data, media_type="image/png")
-    
-    player = await get_player_by_slug(slug)
-    if not player:
-        return Response(status_code=404)
-    
-    image_bytes = await generate_og_card(player)
-    og_cache[slug] = (image_bytes, time.time())
-    
-    return Response(
-        content=image_bytes,
-        media_type="image/png",
-        headers={"Cache-Control": "public, max-age=21600"}  # 6h
-    )
-```
+| Commande | Cog | Description |
+|----------|-----|-------------|
+| `/rt-help` | help | Liste toutes les commandes |
 
 ---
 
-## 8. API Backend — Endpoints
-
-### Joueurs
-
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| `POST` | `/api/players` | Créer un profil (body: riot_id + données déclaratives) |
-| `GET` | `/api/players/{slug}` | Récupérer un profil complet |
-| `PATCH` | `/api/players/{slug}` | Mettre à jour les données déclaratives |
-| `POST` | `/api/players/{slug}/refresh` | Forcer un rafraîchissement des données Riot |
-| `DELETE` | `/api/players/{slug}` | Supprimer un profil |
-
-### Browse / Recherche
-
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| `GET` | `/api/players?is_lft=true&role=JUNGLE&min_rank=GOLD` | Lister les joueurs LFT avec filtres |
-
-### OG
-
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| `GET` | `/api/og/{slug}.png` | Image OG générée dynamiquement |
-
-### Riot (interne)
-
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| `GET` | `/api/riot/check/{name}/{tag}` | Vérifier si un Riot ID existe (utilisé par le formulaire) |
-
----
-
-## 9. Frontend Vue — Pages et Composants
-
-### Pages
+## 7. Frontend — Routes
 
 | Route | Vue | Description |
 |-------|-----|-------------|
-| `/` | `Home.vue` | Landing page : explication + CTA "Crée ton profil" |
-| `/create` | `CreateProfile.vue` | Formulaire de création en étapes |
-| `/p/:slug` | `Profile.vue` | Page profil publique |
-| `/browse` | `Browse.vue` | Recherche/filtre de joueurs LFT |
+| `/` | HomeView | Landing page |
+| `/create?token=` | CreateProfileView | Formulaire de création de profil |
+| `/edit?token=` | EditProfileView | Formulaire d'édition de profil |
+| `/p/:slug` | ProfileView | Page profil publique |
+| `/browse` | BrowseView | Recherche/filtre de joueurs LFT |
+| `/t/:slug` | TeamView | Page équipe publique |
+| `/team/create?token=` | CreateTeamView | Formulaire de création d'équipe |
+| `/team/edit?token=` | EditTeamView | Formulaire d'édition d'équipe |
 
-### Flow de création de profil (`/create`)
-
-```
-Étape 1 — Riot ID                    Étape 2 — Données auto           Étape 3 — Infos perso
-┌──────────────────────┐         ┌──────────────────────┐        ┌──────────────────────┐
-│                      │         │                      │        │                      │
-│  Entre ton Riot ID   │         │  On a trouvé :       │        │  Ton Discord :       │
-│                      │         │                      │        │  [_______________]   │
-│  [Pseudo ] # [TAG ]  │  ────▶  │  ◆ Emerald 2         │ ────▶  │                      │
-│                      │         │  🎯 Jungle Main       │        │  Tu cherches :       │
-│  [ Rechercher ]      │         │  🏆 Lee Sin, Vi...    │        │  ○ Team compétitive  │
-│                      │         │                      │        │  ○ Team chill         │
-│                      │         │  ✅ C'est bien toi ?  │        │  ○ Duo / Clash       │
-└──────────────────────┘         │  [Oui, continuer]    │        │                      │
-                                 └──────────────────────┘        │  Tes disponibilités: │
-                                                                 │  [grille interactive]│
-                                                                 │                      │
-                                                                 │  Description libre : │
-                                                                 │  [_______________]   │
-                                                                 │                      │
-                                                                 │  [Créer mon profil]  │
-                                                                 └──────────────────────┘
-                                                                           │
-                                                                           ▼
-                                                                  Profil créé ! 🎉
-                                                                  Ton lien :
-                                                                  https://riftteam.fr/p/Pseudo-TAG
-                                                                  [ 📋 Copier ] [ 📤 Partager ]
-```
+Les formulaires de création/édition nécessitent un token valide passé en query param, généré par le bot Discord.
 
 ---
 
-## 10. Plan de Développement
+## 8. Intégration Riot API
 
-### Phase 1 — Fondations (Semaines 1-2)
-- [ ] Setup projet : FastAPI + PostgreSQL + Alembic + Vue 3 + Vite
-- [ ] Docker Compose (PostgreSQL + API + frontend dev)
-- [ ] Client Riot API (`shared/riot_client.py`) avec rate limiting
-- [ ] Modèle de données + migrations Alembic
-- [ ] Endpoints API : création et récupération de profil
-- [ ] Service de détection de rôle (`role_detector.py`)
+### Client (`shared/riot_client.py`)
 
-### Phase 2 — Frontend + OG (Semaines 3-4)
-- [ ] Page de création de profil (flow en 3 étapes)
-- [ ] Page profil publique
-- [ ] Génération d'image OG avec Pillow
-- [ ] Route OG avec meta tags pour les crawlers Discord
-- [ ] Page browse/recherche avec filtres
-- [ ] Cron job de rafraîchissement des données Riot
+Singleton `RiotClient` injecté via `app.state` au démarrage de FastAPI.
 
-### Phase 3 — Bot Discord (Semaines 5-6)
-- [ ] Setup bot discord.py
-- [ ] Commande `/profil` avec embed riche
-- [ ] Commande `/lft` (liste des joueurs en recherche, filtrée par rôle)
-- [ ] Commande `/setup` pour les admins (channel dédié)
-- [ ] Hébergement du bot
+**Rate limiting côté client** :
+- Fenêtre courte : 18 req/s (marge sur la limite de 20/s)
+- Fenêtre longue : 95 req/2min (marge sur la limite de 100/2min)
+- Verrou asyncio pour garantir l'atomicité du décompte
+- Retry automatique sur 429 (Retry-After header) et sur 5xx (backoff exponentiel, 3 tentatives)
 
-### Phase 4 — Polish & Lancement (Semaines 7-8)
-- [ ] Design soigné (card OG, page profil, landing page)
-- [ ] Tests avec un groupe restreint de joueurs FR
-- [ ] Soumission à Riot pour la clé Production
-- [ ] Démarche auprès des admins des serveurs Discord FR
-- [ ] Monitoring basique (logs, erreurs API)
+**Cache mémoire** : TTL 5 min, max 1000 entrées. Évite les appels redondants pendant une même session de sync.
 
-### Phase 5 — Post-lancement (Semaines 9+)
-- [ ] Intégration RSO (quand approuvé par Riot) → badge "compte vérifié"
-- [ ] Profils d'équipes (LFP)
-- [ ] Système de réputation / reviews
-- [ ] Notifications Discord (matching automatique)
-- [ ] App Overwolf / overlay (V3+)
+### Endpoints Riot utilisés
+
+| Endpoint | Données |
+|----------|---------|
+| `GET /riot/account/v1/accounts/by-riot-id/{name}/{tag}` | PUUID, gameName, tagLine |
+| `GET /lol/summoner/v4/summoners/by-puuid/{puuid}` | Niveau, icône |
+| `GET /lol/league/v4/entries/by-puuid/{puuid}` | Rang solo/flex (tier, division, LP, W/L) |
+| `GET /lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}/top?count=10` | Top 10 masteries |
+| `GET /lol/match/v5/matches/by-puuid/{puuid}/ids?queue=&count=&startTime=` | IDs des matchs |
+| `GET /lol/match/v5/matches/{matchId}` | Détails match (rôle, champion, KDA, résultat) |
+
+Régions : `europe.api.riotgames.com` pour account et match, `euw1.api.riotgames.com` pour summoner, league et mastery.
+
+### Détection du rôle principal
+
+1. Fetch les IDs de matchs de la saison en cours, par priorité de queue :
+   - Ranked Solo (420) — jusqu'à 100 matchs
+   - Si < 10 matchs : compléter avec Ranked Flex (440)
+   - Si < 10 : compléter avec Normal Draft (400)
+2. Fetch le détail des 50 premiers matchs (cap `MATCH_FETCH_LIMIT`)
+3. Comptage des rôles (`teamPosition`) et agrégation des stats par champion
+4. Rôle principal = le plus joué. Rôle secondaire = le 2ème si ≥ 20% des games.
 
 ---
 
-## 11. Go-to-Market — Communauté FR
+## 9. Synchronisation et tâches de fond
 
-### Serveurs Discord cibles
+### Sync des rangs (backend — boucle dans `lifespan`)
 
-| Serveur | Membres (estimé) | Intérêt |
-|---------|-------------------|---------|
-| League of Legends FR | 50k+ | Le plus gros serveur FR LoL, channels LFT/LFP existants |
-| FFR Community | 10k+ | Communauté FR active, orientée recrutement |
-| Serveurs de ligues amateurs FR | Variable | Nexus Tour, ligues communautaires |
-| Serveurs de streamers FR LoL | Variable | Audience captive de joueurs motivés |
+- **Intervalle** : 12 heures
+- **Cible** : tous les joueurs avec `is_lft = True`
+- **Données** : rang solo/flex, summoner level
+- **Actions** : mise à jour player, enregistrement `rank_snapshot`, mise à jour `peak_rank`
+- **Coût** : 2 appels Riot API par profil
 
-### Argumentaire pour les admins
+### Lazy refresh (backend — `BackgroundTasks`)
 
-> "RiftTeam est un bot gratuit qui améliore vos channels joueur-cherche-équipe. Au lieu de messages texte en vrac, vos membres partagent des profils avec rang réel tiré de l'API Riot, champions joués, et disponibilités — le tout dans un embed propre et standardisé. Ça vous enlève du travail de modération et ça améliore l'expérience de vos membres."
+- Déclenché à chaque `GET /players/{slug}` si `last_riot_sync > 6h`
+- Même logique que la sync mais pour un seul joueur
+- Garde un `set` en mémoire pour éviter les doublons
 
-### Boucle de croissance virale
+### Refresh manuel (`POST /players/{slug}/refresh`)
 
-```
-Joueur crée son profil (60 secondes)
-       │
-       ▼
-Poste le lien dans un channel Discord
-       │
-       ▼
-L'embed est visuellement supérieur aux messages texte
-       │
-       ▼
-D'autres joueurs : "C'est quoi ce truc ?"
-       │
-       ▼
-Ils créent leur propre profil
-       │
-       ▼
-L'admin du serveur installe le bot
-       │
-       ▼
-Le bot devient un standard sur le serveur
-```
+- Déclenché par le bot
+- Cooldown 1 heure
+- Full refresh : rang, champions, match history, snapshots
 
-Chaque embed partagé est une pub pour la plateforme. Le lien `riftteam.fr` est visible dans chaque card.
+### Désactivation des inactifs (bot → backend)
+
+- Le bot appelle `POST /maintenance/deactivate-inactive` toutes les 12 heures
+- Désactive les joueurs LFT et équipes LFP dont `updated_at > 14 jours`
+- Retourne la liste des `discord_user_id` désactivés
+- Le bot envoie un DM à chaque utilisateur avec un bouton "Réactiver"
 
 ---
 
-## 12. Roadmap Futures (Hors V1)
+## 10. Authentification et sécurité
 
-### V2 — Matching & Réputation
-- Matching automatique : notifier quand un profil compatible apparaît
-- Reviews après tryout (attitude, ponctualité, niveau réel)
-- Score de fiabilité visible sur le profil
+### Token d'action (bot → frontend)
 
-### V3 — Équipes & Scrims
-- Profils d'équipes avec roster complet
-- Scrim scheduler avec matching par rang
-- Calendrier partagé d'équipe
+Le bot est le seul point d'entrée pour créer/modifier du contenu. Le flow :
 
-### V4 — Écosystème compétitif FR
-- Intégration circuit amateur (Nexus Tour, Coupe de France)
-- Historique de tournois
-- Leaderboard communautaire
+1. L'utilisateur tape une commande Discord (ex: `/rt-profil-create`)
+2. Le bot appelle `POST /api/tokens` avec `X-Bot-Secret` → reçoit un token + URL
+3. Le bot envoie un lien vers le frontend avec `?token=...`
+4. Le frontend valide le token via `GET /api/tokens/{token}/validate`
+5. Le frontend soumet le formulaire avec `?token=` en query param
+6. Le backend consomme le token et exécute l'action
+
+Types : `create` (profil), `edit` (profil), `team_create`, `team_edit`.
+
+### Bot secret (`X-Bot-Secret` header)
+
+Header partagé entre le bot et le backend. Protège les endpoints sensibles :
+- Création/validation de tokens
+- Refresh de profil
+- Gestion du roster
+- Gestion des scrims
+- Désactivation des inactifs
+- Guild settings
+
+### Rate limiting
+
+Middleware custom sur les routes `GET /api/*` :
+- 60 requêtes par IP par minute
+- Basé sur `X-Forwarded-For` (reverse proxy) ou `request.client.host`
+- Nettoyage périodique des buckets (toutes les 5 min, max 10 000 entrées)
 
 ---
 
-*Document généré le 16/02/2026 — RiftTeam V1 Architecture Spec*
-*Stack : Vue 3 + Vite | FastAPI (Python) | PostgreSQL | discord.py | Pillow*
+## 11. OpenGraph et embeds Discord
+
+### Mécanisme
+
+Quand un lien `riftteam.fr/p/{slug}` est posté dans Discord :
+
+1. Le crawler Discord (`Discordbot` user-agent) fetch l'URL
+2. `og.py` détecte le crawler et retourne un HTML minimal avec meta tags OG
+3. Discord affiche un embed riche avec titre, description, image et `theme-color`
+
+Pour les navigateurs : redirect 302 vers la SPA Vue.
+
+### Meta tags générés
+
+- `og:title` : `{RiotID} — {Rank} {Role}`
+- `og:description` : `{WR} · {Champions} · {Activities}`
+- `og:image` : URL vers `/api/og/{slug}.png`
+- `theme-color` : couleur hex du rang (Iron=gris → Challenger=doré)
+
+### Image OG (Pillow)
+
+Card PNG 1200×630 générée dynamiquement. Cache mémoire : TTL 6h, max 500 entrées. Invalidé lors d'un refresh de profil. Deux variantes : joueur et équipe.
+
+---
+
+## 12. Configuration
+
+Variables d'environnement (`.env`) :
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | URL PostgreSQL (asyncpg) |
+| `RIOT_API_KEY` | Clé API Riot Games |
+| `APP_URL` | URL du frontend (CORS, redirections) |
+| `API_URL` | URL du backend (meta tags OG) |
+| `SECRET_KEY` | Clé secrète backend |
+| `BOT_API_SECRET` | Secret partagé bot ↔ backend |
+| `DISCORD_BOT_TOKEN` | Token du bot Discord |
+| `DEV_GUILD_ID` | Optionnel : sync les commandes sur un seul serveur en dev |
