@@ -39,7 +39,7 @@ async def create_token(
         created_at=datetime.now(timezone.utc),
     )
     db.add(obj)
-    await db.flush()
+    await db.commit()
     return obj
 
 

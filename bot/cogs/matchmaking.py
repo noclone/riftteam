@@ -396,7 +396,7 @@ class MatchmakingCog(commands.Cog):
         await interaction.channel.send(embed=embed, view=view)  # type: ignore[union-attr]
         await interaction.delete_original_response()
 
-    @app_commands.command(name="rt-post-team", description="Poste ton équipe dans le channel")
+    @app_commands.command(name="rt-team-post", description="Poste ton équipe dans le channel")
     async def rt_post_team(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 

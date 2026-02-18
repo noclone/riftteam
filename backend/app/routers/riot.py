@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.dependencies import get_riot_client, verify_bot_secret
+from app.dependencies import get_riot_client
 from app.schemas.player import RiotCheckResponse
 from shared.riot_client import RiotAPIError
 
@@ -8,7 +8,7 @@ router = APIRouter(tags=["riot"])
 
 
 @router.get("/riot/check/{name}/{tag}", response_model=RiotCheckResponse)
-async def check_riot_id(name: str, tag: str, request: Request, _: str = Depends(verify_bot_secret)):
+async def check_riot_id(name: str, tag: str, request: Request):
     client = get_riot_client(request)
     try:
         account = await client.get_account_by_riot_id(name, tag)

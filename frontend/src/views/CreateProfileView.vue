@@ -131,7 +131,7 @@ async function createProfile() {
         <div class="text-4xl mb-4">&#x1F512;</div>
         <h2 class="text-xl font-bold mb-3">Accès réservé</h2>
         <p class="text-gray-400">
-          Pour créer ton profil, utilise la commande <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-register Pseudo#TAG</code> sur Discord.
+          Pour créer ton profil, utilise la commande <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-profil-create Pseudo#TAG</code> sur Discord.
         </p>
       </div>
 

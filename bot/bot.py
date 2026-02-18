@@ -20,7 +20,7 @@ DEV_GUILD_ID = os.getenv("DEV_GUILD_ID", "")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("riftteam")
 
-COGS = ["cogs.profile", "cogs.lfp", "cogs.admin", "cogs.register", "cogs.edit", "cogs.team", "cogs.reactivate", "cogs.matchmaking", "cogs.scrim", "cogs.help"]
+COGS = ["cogs.profile", "cogs.lfp", "cogs.register", "cogs.edit", "cogs.team", "cogs.reactivate", "cogs.matchmaking", "cogs.scrim", "cogs.help"]
 
 DEACTIVATION_INTERVAL = 12 * 3600
 
@@ -83,14 +83,14 @@ class RiftBot(commands.Bot):
             await self._send_deactivation_dm(
                 discord_id, f"rt_reactivate_player:{discord_id}",
                 "Ton profil LFT a été désactivé pour inactivité (14 jours sans mise à jour). "
-                "Utilise `/rt-reactivate` pour le réactiver, ou clique directement sur le bouton ci-dessous.",
+                "Utilise `/rt-profil-enable-lft` pour le réactiver, ou clique directement sur le bouton ci-dessous.",
             )
 
         for discord_id in data.get("teams", []):
             await self._send_deactivation_dm(
                 discord_id, f"rt_reactivate_team:{discord_id}",
                 "Ton équipe a été désactivée pour inactivité (14 jours sans mise à jour). "
-                "Utilise `/rt-reactivate` pour la réactiver, ou clique directement sur le bouton ci-dessous.",
+                "Utilise `/rt-team-enable-lfp` pour la réactiver, ou clique directement sur le bouton ci-dessous.",
             )
 
     async def _send_deactivation_dm(self, discord_id: str, custom_id: str, message: str) -> None:

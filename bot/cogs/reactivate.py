@@ -13,13 +13,17 @@ class ReactivateCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    @app_commands.command(name="rt-reactivate", description="Réactive ton profil et/ou ton équipe désactivés pour inactivité")
-    async def rt_reactivate(self, interaction: discord.Interaction) -> None:
+    @app_commands.command(name="rt-profil-enable-lft", description="Active ton profil en mode LFT (cherche une équipe)")
+    async def rt_profil_enable_lft(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
-        user_id = str(interaction.user.id)
-        player_msg = await self._reactivate_player(user_id)
-        team_msg = await self._reactivate_team(user_id)
-        await interaction.followup.send(f"{player_msg}\n{team_msg}")
+        msg = await self._reactivate_player(str(interaction.user.id))
+        await interaction.followup.send(msg)
+
+    @app_commands.command(name="rt-team-enable-lfp", description="Active ton équipe en mode LFP (cherche des joueurs)")
+    async def rt_team_enable_lfp(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+        msg = await self._reactivate_team(str(interaction.user.id))
+        await interaction.followup.send(msg)
 
     async def _reactivate_player(self, user_id: str) -> str:
         session = get_session(self.bot)
@@ -30,15 +34,15 @@ class ReactivateCog(commands.Cog):
                     return "Profil introuvable."
                 player = await resp.json()
                 if player.get("is_lft"):
-                    return "Ton profil est déjà actif."
+                    return "Ton profil est déjà en mode LFT."
                 async with session.post(
                     f"/api/players/{player['slug']}/reactivate",
                     params={"discord_user_id": user_id},
                     headers={"X-Bot-Secret": api_secret},
                 ) as r:
                     if r.status == 200:
-                        return "Ton profil LFT a été réactivé !"
-                    return "Impossible de réactiver ton profil."
+                        return "Ton profil est maintenant en mode LFT !"
+                    return "Impossible d'activer le mode LFT."
         except Exception as exc:
             log.exception("Failed to reactivate player")
             return format_api_error(exc)
@@ -52,15 +56,15 @@ class ReactivateCog(commands.Cog):
                     return "Équipe introuvable."
                 team = await resp.json()
                 if team.get("is_lfp"):
-                    return f"Ton équipe **{team['name']}** est déjà active."
+                    return f"Ton équipe **{team['name']}** est déjà en mode LFP."
                 async with session.post(
                     f"/api/teams/{team['slug']}/reactivate",
                     params={"discord_user_id": user_id},
                     headers={"X-Bot-Secret": api_secret},
                 ) as r:
                     if r.status == 200:
-                        return f"Ton équipe **{team['name']}** a été réactivée !"
-                    return "Impossible de réactiver ton équipe."
+                        return f"Ton équipe **{team['name']}** est maintenant en mode LFP !"
+                    return "Impossible d'activer le mode LFP."
         except Exception as exc:
             log.exception("Failed to reactivate team")
             return format_api_error(exc)

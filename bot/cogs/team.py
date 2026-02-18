@@ -331,6 +331,18 @@ class TeamCog(commands.Cog):
         filters_encoded = encode_list_filters(role, min_rank, max_rank)
         view = build_nav_view("rt_lft_page", page, total, PAGE_SIZE, filters_encoded)
 
+        for t in teams:
+            captain_id = t.get("captain_discord_id")
+            if captain_id:
+                label = f"Contacter {t['name']}"
+                if len(label) > 80:
+                    label = label[:77] + "..."
+                view.add_item(discord.ui.Button(
+                    label=label,
+                    style=discord.ButtonStyle.secondary,
+                    custom_id=f"rt_contact:{captain_id}",
+                ))
+
         if edit:
             await interaction.edit_original_response(embed=embed, view=view)
         else:

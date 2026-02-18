@@ -128,7 +128,7 @@ class ProfileCog(commands.Cog):
         name, tag = parsed
         slug = f"{name}-{tag}"
 
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
         session = get_session(self.bot)
         try:
@@ -147,7 +147,7 @@ class ProfileCog(commands.Cog):
             return
 
         embed = build_profile_embed(player)
-        await interaction.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 async def setup(bot: commands.Bot) -> None:

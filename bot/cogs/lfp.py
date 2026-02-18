@@ -29,11 +29,13 @@ def _build_embed(players: list[dict], total: int, page: int, role: str | None) -
         riot_id = f"{p['riot_game_name']}#{p['riot_tag_line']}"
         rank = format_rank(p.get("rank_solo_tier"), p.get("rank_solo_division"), p.get("rank_solo_lp"))
         primary = p.get("primary_role")
-        role_emoji = ROLE_EMOJIS.get(primary, "") if primary else ""
-        role_name = ROLE_NAMES.get(primary, "") if primary else ""
+        secondary = p.get("secondary_role")
+        role_str = f"{ROLE_EMOJIS.get(primary, '')} {ROLE_NAMES.get(primary, '')}" if primary else ""
+        if secondary:
+            role_str += f" / {ROLE_EMOJIS.get(secondary, '')} {ROLE_NAMES.get(secondary, '')}"
         link = f"{APP_URL}/p/{p['slug']}"
 
-        lines = [f"{rank} · {role_emoji} {role_name}"]
+        lines = [f"{rank} · {role_str}"]
 
         info_parts = build_info_parts(p)
         if info_parts:
@@ -101,6 +103,19 @@ class LfpCog(commands.Cog):
         embed = _build_embed(players, total, page, role)
         filters_encoded = encode_list_filters(role, min_rank, max_rank)
         view = build_nav_view("rt_lfp_page", page, total, PAGE_SIZE, filters_encoded)
+
+        for p in players:
+            discord_id = p.get("discord_user_id")
+            if discord_id:
+                riot_id = f"{p['riot_game_name']}#{p['riot_tag_line']}"
+                label = f"Contacter {riot_id}"
+                if len(label) > 80:
+                    label = label[:77] + "..."
+                view.add_item(discord.ui.Button(
+                    label=label,
+                    style=discord.ButtonStyle.secondary,
+                    custom_id=f"rt_contact:{discord_id}",
+                ))
 
         if edit:
             await interaction.edit_original_response(embed=embed, view=view)

@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -207,8 +207,9 @@ async def list_players(
         stmt = stmt.where(Player.is_lft == is_lft)
         count_stmt = count_stmt.where(Player.is_lft == is_lft)
     if role:
-        stmt = stmt.where(Player.primary_role == role.upper())
-        count_stmt = count_stmt.where(Player.primary_role == role.upper())
+        role_filter = or_(Player.primary_role == role.upper(), Player.secondary_role == role.upper())
+        stmt = stmt.where(role_filter)
+        count_stmt = count_stmt.where(role_filter)
     stmt, count_stmt = apply_rank_filters(stmt, count_stmt, min_rank, max_rank, Player.rank_solo_tier)
 
     total_result = await db.execute(count_stmt)

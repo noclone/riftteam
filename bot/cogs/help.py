@@ -21,7 +21,8 @@ class HelpCog(commands.Cog):
                 "`/rt-profil-create` — Crée ton profil\n"
                 "`/rt-profil-show` — Affiche un profil\n"
                 "`/rt-profil-edit` — Modifie ton profil\n"
-                "`/rt-profil-post` — Partage ton profil dans le channel"
+                "`/rt-profil-post` — Partage ton profil dans le channel\n"
+                "`/rt-profil-enable-lft` — Active ton profil en mode LFT"
             ),
             inline=False,
         )
@@ -33,7 +34,8 @@ class HelpCog(commands.Cog):
                 "`/rt-team-edit` — Modifie ton équipe\n"
                 "`/rt-team-roster add` — Ajoute un joueur\n"
                 "`/rt-team-roster remove` — Retire un joueur\n"
-                "`/rt-post-team` — Partage ton équipe dans le channel"
+                "`/rt-team-post` — Partage ton \u00e9quipe dans le channel\n"
+                "`/rt-team-enable-lfp` — Active ton \u00e9quipe en mode LFP"
             ),
             inline=False,
         )
@@ -55,15 +57,6 @@ class HelpCog(commands.Cog):
                 "`/rt-scrim-post` — Poste un scrim\n"
                 "`/rt-scrim-search` — Cherche des scrims (date, heure, format, rang)\n"
                 "`/rt-scrim-cancel` — Annule le scrim actif de ton équipe"
-            ),
-            inline=False,
-        )
-
-        embed.add_field(
-            name="\u2699\ufe0f Autre",
-            value=(
-                "`/rt-reactivate` — R\u00e9active profil / \u00e9quipe\n"
-                "`/rt-setup` — Channel d'annonces *(admin)*"
             ),
             inline=False,
         )

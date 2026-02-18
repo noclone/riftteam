@@ -477,16 +477,6 @@ class ScrimCog(commands.Cog):
         filters_encoded = _encode_filters(min_rank, max_rank, scheduled_date, fmt, hour_min, hour_max)
         view = discord.ui.View(timeout=None)
 
-        for captain_id, team_name in contact_buttons:
-            label = f"Contacter {team_name}"
-            if len(label) > 80:
-                label = label[:77] + "..."
-            view.add_item(discord.ui.Button(
-                label=label,
-                style=discord.ButtonStyle.secondary,
-                custom_id=f"rt_contact:{captain_id}",
-            ))
-
         view.add_item(discord.ui.Button(
             label="◀ Précédent",
             style=discord.ButtonStyle.secondary,
@@ -499,6 +489,16 @@ class ScrimCog(commands.Cog):
             custom_id=f"rt_scrim_page:{page + 1}:{filters_encoded}",
             disabled=page >= total_pages - 1,
         ))
+
+        for captain_id, team_name in contact_buttons:
+            label = f"Contacter {team_name}"
+            if len(label) > 80:
+                label = label[:77] + "..."
+            view.add_item(discord.ui.Button(
+                label=label,
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"rt_contact:{captain_id}",
+            ))
 
         if edit:
             await interaction.edit_original_response(embed=embed, view=view)
