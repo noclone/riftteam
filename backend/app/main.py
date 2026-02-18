@@ -3,13 +3,13 @@ import logging
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import players, riot, tokens
+from app.routers import players, riot, teams, tokens
 from app.routers.og import router as og_router
-from app.services.sync import sync_active_ranks
+from app.services.sync import deactivate_inactive, sync_active_ranks
 from shared.riot_client import RiotClient
 
 logger = logging.getLogger("riftteam")
@@ -23,6 +23,10 @@ async def _rank_sync_loop(app: FastAPI) -> None:
             await sync_active_ranks(client=app.state.riot_client)
         except Exception:
             logger.exception("Rank sync loop error")
+        try:
+            await deactivate_inactive()
+        except Exception:
+            logger.exception("Deactivation loop error")
         await asyncio.sleep(SYNC_INTERVAL)
 
 
@@ -48,6 +52,7 @@ app.add_middleware(
 )
 
 app.include_router(players.router, prefix="/api")
+app.include_router(teams.router, prefix="/api")
 app.include_router(riot.router, prefix="/api")
 app.include_router(tokens.router, prefix="/api")
 app.include_router(og_router)
@@ -56,3 +61,11 @@ app.include_router(og_router)
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.post("/api/maintenance/deactivate-inactive")
+async def maintenance_deactivate(x_bot_secret: str = Header(...)):
+    if x_bot_secret != settings.bot_api_secret:
+        raise HTTPException(403, "Invalid bot secret")
+    result = await deactivate_inactive()
+    return result

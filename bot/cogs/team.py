@@ -1,0 +1,364 @@
+import logging
+import os
+
+import discord
+from discord import app_commands
+from discord.ext import commands
+
+from shared.constants import RANK_COLORS, RANK_ORDER, ROLE_EMOJIS, ROLE_NAMES
+
+APP_URL = os.getenv("APP_URL", "http://localhost:5173")
+
+log = logging.getLogger("riftteam.team")
+
+ROLE_CHOICES = [
+    app_commands.Choice(name="Top", value="TOP"),
+    app_commands.Choice(name="Jungle", value="JUNGLE"),
+    app_commands.Choice(name="Mid", value="MIDDLE"),
+    app_commands.Choice(name="ADC", value="BOTTOM"),
+    app_commands.Choice(name="Support", value="UTILITY"),
+]
+
+RANK_CHOICES = [
+    app_commands.Choice(name=k.capitalize(), value=k)
+    for k in RANK_ORDER
+]
+
+
+def _rank_short(tier: str | None, division: str | None) -> str:
+    if not tier:
+        return "Unranked"
+    t = tier.capitalize()
+    if division and tier not in ("MASTER", "GRANDMASTER", "CHALLENGER"):
+        return f"{t} {division}"
+    return t
+
+
+class TeamCog(commands.Cog):
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot = bot
+
+    @app_commands.command(name="rt-team-create", description="Crée une équipe RiftTeam")
+    @app_commands.describe(name="Nom de l'équipe")
+    async def rt_team_create(self, interaction: discord.Interaction, name: str) -> None:
+        await interaction.response.defer(ephemeral=True)
+
+        session = self.bot.http_session  # type: ignore[attr-defined]
+        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+
+        try:
+            async with session.get(f"/api/teams/by-captain/{interaction.user.id}") as resp:
+                if resp.status == 200:
+                    existing = await resp.json()
+                    await interaction.followup.send(
+                        f"Tu es déjà capitaine de **{existing['name']}**. "
+                        f"Utilise `/rt-team-edit` pour la modifier.",
+                    )
+                    return
+        except Exception:
+            log.exception("Failed to check existing team")
+            await interaction.followup.send("Erreur lors de la vérification.")
+            return
+
+        try:
+            payload = {
+                "action": "team_create",
+                "discord_user_id": str(interaction.user.id),
+                "discord_username": interaction.user.name,
+                "team_name": name,
+            }
+            async with session.post(
+                "/api/tokens",
+                json=payload,
+                headers={"X-Bot-Secret": api_secret},
+            ) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+                url = data["url"]
+        except Exception:
+            log.exception("Failed to create team token")
+            await interaction.followup.send("Erreur lors de la création du lien.")
+            return
+
+        view = discord.ui.View()
+        view.add_item(discord.ui.Button(
+            label="Créer mon équipe",
+            style=discord.ButtonStyle.link,
+            url=url,
+        ))
+        await interaction.followup.send(
+            f"Clique ci-dessous pour créer ton équipe **{name}** !\n"
+            f"Le lien expire dans 30 minutes.",
+            view=view,
+        )
+
+    @app_commands.command(name="rt-team-edit", description="Modifie ton équipe RiftTeam")
+    async def rt_team_edit(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+
+        session = self.bot.http_session  # type: ignore[attr-defined]
+        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+
+        try:
+            async with session.get(f"/api/teams/by-captain/{interaction.user.id}") as resp:
+                if resp.status == 404:
+                    await interaction.followup.send(
+                        "Tu n'as pas d'équipe. Utilise `/rt-team-create NomEquipe` pour en créer une !",
+                    )
+                    return
+                resp.raise_for_status()
+                team = await resp.json()
+        except Exception:
+            log.exception("Failed to fetch team by captain")
+            await interaction.followup.send("Erreur lors de la récupération de l'équipe.")
+            return
+
+        try:
+            payload = {
+                "action": "team_edit",
+                "discord_user_id": str(interaction.user.id),
+                "discord_username": interaction.user.name,
+                "slug": team["slug"],
+            }
+            async with session.post(
+                "/api/tokens",
+                json=payload,
+                headers={"X-Bot-Secret": api_secret},
+            ) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+                url = data["url"]
+        except Exception:
+            log.exception("Failed to create team edit token")
+            await interaction.followup.send("Erreur lors de la création du lien.")
+            return
+
+        view = discord.ui.View()
+        view.add_item(discord.ui.Button(
+            label="Modifier mon équipe",
+            style=discord.ButtonStyle.link,
+            url=url,
+        ))
+        await interaction.followup.send(
+            f"Clique ci-dessous pour modifier ton équipe **{team['name']}** !\n"
+            f"Le lien expire dans 30 minutes.",
+            view=view,
+        )
+
+    team_roster_group = app_commands.Group(name="rt-team-roster", description="Gérer le roster de ton équipe")
+
+    @team_roster_group.command(name="add", description="Ajouter un joueur au roster")
+    @app_commands.describe(riot_id="Riot ID du joueur (ex: Pseudo#TAG)", role="Rôle assigné")
+    @app_commands.choices(role=ROLE_CHOICES)
+    async def roster_add(
+        self,
+        interaction: discord.Interaction,
+        riot_id: str,
+        role: app_commands.Choice[str],
+    ) -> None:
+        parts = riot_id.split("#", 1)
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            await interaction.response.send_message(
+                "Format invalide. Utilise `Pseudo#TAG`.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        session = self.bot.http_session  # type: ignore[attr-defined]
+        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+
+        try:
+            async with session.get(f"/api/teams/by-captain/{interaction.user.id}") as resp:
+                if resp.status == 404:
+                    await interaction.followup.send("Tu n'as pas d'équipe.")
+                    return
+                resp.raise_for_status()
+                team = await resp.json()
+        except Exception:
+            log.exception("Failed to fetch team")
+            await interaction.followup.send("Erreur lors de la récupération de l'équipe.")
+            return
+
+        name, tag = parts
+        player_slug = f"{name}-{tag}"
+
+        try:
+            payload = {
+                "player_slug": player_slug,
+                "role": role.value,
+                "discord_user_id": str(interaction.user.id),
+            }
+            async with session.post(
+                f"/api/teams/{team['slug']}/members",
+                json=payload,
+                headers={"X-Bot-Secret": api_secret},
+            ) as resp:
+                if resp.status == 404:
+                    await interaction.followup.send(f"Riot ID **{riot_id}** introuvable.")
+                    return
+                if resp.status == 409:
+                    body = await resp.json()
+                    await interaction.followup.send(body.get("detail", "Ce joueur est déjà dans une équipe."))
+                    return
+                if resp.status in (502, 503):
+                    body = await resp.json()
+                    detail = body.get("detail", "Erreur Riot API")
+                    await interaction.followup.send(f"Impossible de récupérer les données Riot : {detail}")
+                    return
+                resp.raise_for_status()
+        except discord.NotFound:
+            raise
+        except Exception:
+            log.exception("Failed to add member")
+            await interaction.followup.send("Erreur lors de l'ajout du membre.")
+            return
+
+        await interaction.followup.send(
+            f"**{riot_id}** ajouté au roster en tant que **{role.name}** !",
+        )
+
+    @team_roster_group.command(name="remove", description="Retirer un joueur du roster")
+    @app_commands.describe(riot_id="Riot ID du joueur (ex: Pseudo#TAG)")
+    async def roster_remove(self, interaction: discord.Interaction, riot_id: str) -> None:
+        parts = riot_id.split("#", 1)
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            await interaction.response.send_message(
+                "Format invalide. Utilise `Pseudo#TAG`.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        session = self.bot.http_session  # type: ignore[attr-defined]
+        api_secret = self.bot.api_secret  # type: ignore[attr-defined]
+
+        try:
+            async with session.get(f"/api/teams/by-captain/{interaction.user.id}") as resp:
+                if resp.status == 404:
+                    await interaction.followup.send("Tu n'as pas d'équipe.")
+                    return
+                resp.raise_for_status()
+                team = await resp.json()
+        except Exception:
+            log.exception("Failed to fetch team")
+            await interaction.followup.send("Erreur lors de la récupération de l'équipe.")
+            return
+
+        name, tag = parts
+        player_slug = f"{name}-{tag}"
+
+        try:
+            async with session.delete(
+                f"/api/teams/{team['slug']}/members/{player_slug}",
+                params={"discord_user_id": str(interaction.user.id)},
+                headers={"X-Bot-Secret": api_secret},
+            ) as resp:
+                if resp.status == 404:
+                    await interaction.followup.send(f"**{riot_id}** n'est pas dans ton équipe.")
+                    return
+                resp.raise_for_status()
+        except discord.NotFound:
+            raise
+        except Exception:
+            log.exception("Failed to remove member")
+            await interaction.followup.send("Erreur lors du retrait du membre.")
+            return
+
+        await interaction.followup.send(f"**{riot_id}** retiré du roster.")
+
+    @app_commands.command(name="rt-lft", description="Équipes qui cherchent des joueurs")
+    @app_commands.describe(
+        role="Filtrer par rôle recherché",
+        min_rank="Rang minimum",
+        max_rank="Rang maximum",
+    )
+    @app_commands.choices(role=ROLE_CHOICES, min_rank=RANK_CHOICES, max_rank=RANK_CHOICES)
+    async def rt_lft(
+        self,
+        interaction: discord.Interaction,
+        role: app_commands.Choice[str] | None = None,
+        min_rank: app_commands.Choice[str] | None = None,
+        max_rank: app_commands.Choice[str] | None = None,
+    ) -> None:
+        await interaction.response.defer(ephemeral=True)
+
+        params: dict[str, str] = {"is_lfp": "true", "limit": "5"}
+        if role:
+            params["role"] = role.value
+        if min_rank:
+            params["min_rank"] = min_rank.value
+        if max_rank:
+            params["max_rank"] = max_rank.value
+
+        session = self.bot.http_session  # type: ignore[attr-defined]
+        try:
+            async with session.get("/api/teams", params=params) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+        except Exception:
+            log.exception("Failed to fetch LFT teams")
+            await interaction.followup.send(
+                "Erreur lors de la récupération des équipes. Réessaie plus tard.",
+                ephemeral=True,
+            )
+            return
+
+        teams = data.get("teams", [])
+        if not teams:
+            msg = "Aucune équipe LFP trouvée"
+            filters = []
+            if role:
+                filters.append(f"rôle **{role.name}**")
+            if min_rank:
+                filters.append(f"rang min **{min_rank.name}**")
+            if max_rank:
+                filters.append(f"rang max **{max_rank.name}**")
+            if filters:
+                msg += " pour " + ", ".join(filters)
+            msg += "."
+            await interaction.followup.send(msg)
+            return
+
+        title = "Équipes LFP"
+        if role:
+            emoji = ROLE_EMOJIS.get(role.value, "")
+            title += f" — {emoji} {role.name}"
+
+        embed = discord.Embed(title=title, color=0xE67E22)
+
+        for t in teams:
+            name = t["name"]
+            wanted = t.get("wanted_roles") or []
+            wanted_str = ", ".join(ROLE_NAMES.get(r, r) for r in wanted) if wanted else "Tous rôles"
+            rank_range = ""
+            if t.get("min_rank") or t.get("max_rank"):
+                parts = []
+                if t.get("min_rank"):
+                    parts.append(t["min_rank"].capitalize())
+                if t.get("max_rank"):
+                    parts.append(t["max_rank"].capitalize())
+                rank_range = " → ".join(parts)
+            member_count = len(t.get("members", []))
+            link = f"{APP_URL}/t/{t['slug']}"
+
+            value_parts = [f"Cherche : {wanted_str}"]
+            if rank_range:
+                value_parts.append(f"Elo : {rank_range}")
+            value_parts.append(f"Roster : {member_count}/5")
+            value_parts.append(f"[Voir l'équipe]({link})")
+
+            embed.add_field(
+                name=name,
+                value="\n".join(value_parts),
+                inline=False,
+            )
+
+        embed.set_footer(text=f"RiftTeam · {data.get('total', len(teams))} équipes LFP au total")
+        await interaction.followup.send(embed=embed)
+
+
+async def setup(bot: commands.Bot) -> None:
+    await bot.add_cog(TeamCog(bot))

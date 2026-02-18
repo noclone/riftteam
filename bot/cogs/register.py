@@ -11,9 +11,9 @@ class RegisterCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    @app_commands.command(name="register", description="Crée ton profil RiftTeam à partir de ton Riot ID")
+    @app_commands.command(name="rt-register", description="Crée ton profil RiftTeam à partir de ton Riot ID")
     @app_commands.describe(riot_id="Ton Riot ID (ex: Pseudo#TAG)")
-    async def register(self, interaction: discord.Interaction, riot_id: str) -> None:
+    async def rt_register(self, interaction: discord.Interaction, riot_id: str) -> None:
         parts = riot_id.split("#", 1)
         if len(parts) != 2 or not parts[0] or not parts[1]:
             await interaction.response.send_message(
@@ -35,7 +35,7 @@ class RegisterCog(commands.Cog):
                     existing = await resp.json()
                     existing_name = f"{existing['riot_game_name']}#{existing['riot_tag_line']}"
                     await interaction.followup.send(
-                        f"Tu as déjà un profil (**{existing_name}**). Utilise `/edit` pour le modifier.",
+                        f"Tu as déjà un profil (**{existing_name}**). Utilise `/rt-edit` pour le modifier.",
                     )
                     return
         except Exception:
@@ -63,11 +63,12 @@ class RegisterCog(commands.Cog):
         try:
             async with session.get(f"/api/players/{slug}") as resp:
                 if resp.status == 200:
-                    await interaction.followup.send(
-                        f"Un profil existe déjà pour **{riot_id}**. "
-                        f"Si c'est le tien, utilise `/edit`.",
-                    )
-                    return
+                    existing_player = await resp.json()
+                    if existing_player.get("discord_user_id") is not None:
+                        await interaction.followup.send(
+                            f"Un profil existe déjà pour **{riot_id}** et est déjà attribué.",
+                        )
+                        return
         except Exception:
             log.exception("Failed to check existing player %s", slug)
             await interaction.followup.send("Erreur lors de la vérification.")

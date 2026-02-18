@@ -20,7 +20,9 @@ DEV_GUILD_ID = os.getenv("DEV_GUILD_ID", "")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("riftteam")
 
-COGS = ["cogs.profile", "cogs.lft", "cogs.admin", "cogs.register", "cogs.edit"]
+COGS = ["cogs.profile", "cogs.lfp", "cogs.admin", "cogs.register", "cogs.edit", "cogs.team", "cogs.reactivate", "cogs.matchmaking", "cogs.help"]
+
+DEACTIVATION_INTERVAL = 12 * 3600
 
 
 class RiftBot(commands.Bot):
@@ -29,6 +31,7 @@ class RiftBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
         self.http_session: aiohttp.ClientSession | None = None
         self.api_secret: str = BOT_API_SECRET
+        self._deactivation_task: asyncio.Task | None = None
 
     async def setup_hook(self) -> None:
         self.http_session = aiohttp.ClientSession(base_url=API_URL)
@@ -45,8 +48,57 @@ class RiftBot(commands.Bot):
         else:
             synced = await self.tree.sync()
         log.info("Logged in as %s — synced %d commands", self.user, len(synced))
+        if self._deactivation_task is None:
+            self._deactivation_task = asyncio.create_task(self._deactivation_loop())
+
+    async def _deactivation_loop(self) -> None:
+        await self.wait_until_ready()
+        while not self.is_closed():
+            try:
+                await self._run_deactivation()
+            except Exception:
+                log.exception("Deactivation loop error")
+            await asyncio.sleep(DEACTIVATION_INTERVAL)
+
+    async def _run_deactivation(self) -> None:
+        if not self.http_session:
+            return
+        try:
+            async with self.http_session.post(
+                "/api/maintenance/deactivate-inactive",
+                headers={"X-Bot-Secret": self.api_secret},
+            ) as resp:
+                if resp.status != 200:
+                    log.warning("Deactivation endpoint returned %d", resp.status)
+                    return
+                data = await resp.json()
+        except Exception:
+            log.exception("Failed to call deactivation endpoint")
+            return
+
+        for discord_id in data.get("players", []):
+            try:
+                user = await self.fetch_user(int(discord_id))
+                await user.send(
+                    "Ton profil LFT a été désactivé pour inactivité (14 jours sans mise à jour). "
+                    "Utilise `/rt-reactivate` pour le réactiver."
+                )
+            except Exception:
+                log.warning("Failed to DM player %s", discord_id)
+
+        for discord_id in data.get("teams", []):
+            try:
+                user = await self.fetch_user(int(discord_id))
+                await user.send(
+                    "Ton équipe a été désactivée pour inactivité (14 jours sans mise à jour). "
+                    "Utilise `/rt-reactivate` pour la réactiver."
+                )
+            except Exception:
+                log.warning("Failed to DM captain %s", discord_id)
 
     async def close(self) -> None:
+        if self._deactivation_task:
+            self._deactivation_task.cancel()
         if self.http_session:
             await self.http_session.close()
         await super().close()

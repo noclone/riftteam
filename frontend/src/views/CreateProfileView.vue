@@ -15,6 +15,7 @@ const profileUrl = ref('')
 const token = ref('')
 
 const DDRAGON_VERSION = ref('15.3.1')
+const isClaim = ref(false)
 
 const description = ref('')
 const activities = ref<string[]>([])
@@ -70,6 +71,15 @@ onMounted(async () => {
     }
     await fetchDDragonVersion()
     riotData.value = await api.checkRiotId(tokenInfo.value.game_name, tokenInfo.value.tag_line)
+    const slug = `${tokenInfo.value.game_name}-${tokenInfo.value.tag_line}`
+    try {
+      const existing = await api.getPlayer(slug)
+      if (existing && existing.discord_user_id === null) {
+        isClaim.value = true
+      }
+    } catch {
+      // player doesn't exist, normal create flow
+    }
     step.value = 1
   } catch {
     tokenBlocked.value = true
@@ -111,7 +121,7 @@ async function createProfile() {
         <div class="text-4xl mb-4">&#x1F512;</div>
         <h2 class="text-xl font-bold mb-3">Accès réservé</h2>
         <p class="text-gray-400">
-          Pour créer ton profil, utilise la commande <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/register Pseudo#TAG</code> sur Discord.
+          Pour créer ton profil, utilise la commande <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-register Pseudo#TAG</code> sur Discord.
         </p>
       </div>
 
@@ -267,7 +277,7 @@ async function createProfile() {
         <div v-if="step === 3 && createdPlayer" class="text-center">
           <div class="bg-gray-800 rounded-xl p-8 mb-6">
             <div class="text-4xl mb-4">&#x2705;</div>
-            <h2 class="text-2xl font-bold mb-2">Profil créé !</h2>
+            <h2 class="text-2xl font-bold mb-2">{{ isClaim ? 'Profil attribué !' : 'Profil créé !' }}</h2>
             <p class="text-gray-400 mb-6">Ton profil est prêt à être partagé.</p>
 
             <div class="bg-gray-700/50 rounded-lg p-4 mb-6">

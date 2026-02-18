@@ -9,13 +9,14 @@ TOKEN_TTL_SECONDS = 30 * 60
 @dataclass
 class TokenData:
     token: str
-    action: Literal["create", "edit"]
+    action: Literal["create", "edit", "team_create", "team_edit"]
     discord_user_id: str
     discord_username: str
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     game_name: str | None = None
     tag_line: str | None = None
     slug: str | None = None
+    team_name: str | None = None
 
 
 _store: dict[str, TokenData] = {}
@@ -32,12 +33,13 @@ def _cleanup() -> None:
 
 
 def create_token(
-    action: Literal["create", "edit"],
+    action: Literal["create", "edit", "team_create", "team_edit"],
     discord_user_id: str,
     discord_username: str,
     game_name: str | None = None,
     tag_line: str | None = None,
     slug: str | None = None,
+    team_name: str | None = None,
 ) -> TokenData:
     _cleanup()
     token = uuid.uuid4().hex
@@ -49,6 +51,7 @@ def create_token(
         game_name=game_name,
         tag_line=tag_line,
         slug=slug,
+        team_name=team_name,
     )
     _store[token] = data
     return data

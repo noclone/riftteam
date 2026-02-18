@@ -11,8 +11,8 @@ class EditCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    @app_commands.command(name="edit", description="Modifie ton profil RiftTeam")
-    async def edit(self, interaction: discord.Interaction) -> None:
+    @app_commands.command(name="rt-edit", description="Modifie ton profil RiftTeam")
+    async def rt_edit(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
         session = self.bot.http_session  # type: ignore[attr-defined]
@@ -22,7 +22,7 @@ class EditCog(commands.Cog):
             async with session.get(f"/api/players/by-discord/{interaction.user.id}") as resp:
                 if resp.status == 404:
                     await interaction.followup.send(
-                        "Tu n'as pas encore de profil. Utilise `/register Pseudo#TAG` pour en créer un !",
+                        "Tu n'as pas encore de profil. Utilise `/rt-register Pseudo#TAG` pour en créer un !",
                     )
                     return
                 resp.raise_for_status()

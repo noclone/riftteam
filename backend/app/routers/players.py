@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -64,8 +64,12 @@ async def create_player(
         raise HTTPException(400, "Token incomplet (game_name/tag_line manquant)")
 
     slug = Player.make_slug(game_name, tag_line)
-    existing = await db.execute(select(Player).where(Player.slug == slug))
-    if existing.scalar_one_or_none():
+    existing_result = await db.execute(
+        select(Player).options(selectinload(Player.champions)).where(Player.slug == slug)
+    )
+    existing = existing_result.scalar_one_or_none()
+
+    if existing and existing.discord_user_id is not None:
         raise HTTPException(409, "Profile already exists for this Riot ID")
 
     client = _get_riot_client(request)
@@ -77,56 +81,110 @@ async def create_player(
         raise HTTPException(502, f"Riot API error: {e.message}")
 
     now = datetime.now(timezone.utc)
-    player = Player(
-        riot_puuid=riot_data["puuid"],
-        riot_game_name=riot_data["game_name"],
-        riot_tag_line=riot_data["tag_line"],
-        slug=slug,
-        summoner_level=riot_data["summoner_level"],
-        profile_icon_id=riot_data["profile_icon_id"],
-        rank_solo_tier=riot_data["rank_solo_tier"],
-        rank_solo_division=riot_data["rank_solo_division"],
-        rank_solo_lp=riot_data["rank_solo_lp"],
-        rank_solo_wins=riot_data["rank_solo_wins"],
-        rank_solo_losses=riot_data["rank_solo_losses"],
-        rank_flex_tier=riot_data["rank_flex_tier"],
-        rank_flex_division=riot_data["rank_flex_division"],
-        rank_flex_lp=riot_data["rank_flex_lp"],
-        rank_flex_wins=riot_data["rank_flex_wins"],
-        rank_flex_losses=riot_data["rank_flex_losses"],
-        peak_solo_tier=riot_data["rank_solo_tier"],
-        peak_solo_division=riot_data["rank_solo_division"],
-        peak_solo_lp=riot_data["rank_solo_lp"],
-        primary_role=riot_data["primary_role"],
-        secondary_role=riot_data["secondary_role"],
-        discord_user_id=token_data.discord_user_id,
-        discord_username=token_data.discord_username,
-        description=body.description,
-        activities=body.activities,
-        ambiance=body.ambiance,
-        frequency_min=body.frequency_min,
-        frequency_max=body.frequency_max,
-        is_lft=body.is_lft,
-        last_riot_sync=now,
-    )
 
-    for champ in riot_data["champions"]:
-        player.champions.append(
-            PlayerChampion(
-                champion_id=champ["champion_id"],
-                champion_name=champ["champion_name"],
-                mastery_level=champ["mastery_level"],
-                mastery_points=champ["mastery_points"],
-                games_played=champ["games_played"],
-                wins=champ["wins"],
-                losses=champ["losses"],
-                avg_kills=champ["avg_kills"],
-                avg_deaths=champ["avg_deaths"],
-                avg_assists=champ["avg_assists"],
+    if existing and existing.discord_user_id is None:
+        player = existing
+        player.riot_puuid = riot_data["puuid"]
+        player.riot_game_name = riot_data["game_name"]
+        player.riot_tag_line = riot_data["tag_line"]
+        player.summoner_level = riot_data["summoner_level"]
+        player.profile_icon_id = riot_data["profile_icon_id"]
+        player.rank_solo_tier = riot_data["rank_solo_tier"]
+        player.rank_solo_division = riot_data["rank_solo_division"]
+        player.rank_solo_lp = riot_data["rank_solo_lp"]
+        player.rank_solo_wins = riot_data["rank_solo_wins"]
+        player.rank_solo_losses = riot_data["rank_solo_losses"]
+        player.rank_flex_tier = riot_data["rank_flex_tier"]
+        player.rank_flex_division = riot_data["rank_flex_division"]
+        player.rank_flex_lp = riot_data["rank_flex_lp"]
+        player.rank_flex_wins = riot_data["rank_flex_wins"]
+        player.rank_flex_losses = riot_data["rank_flex_losses"]
+        player.primary_role = riot_data["primary_role"]
+        player.secondary_role = riot_data["secondary_role"]
+        player.discord_user_id = token_data.discord_user_id
+        player.discord_username = token_data.discord_username
+        player.description = body.description
+        player.activities = body.activities
+        player.ambiance = body.ambiance
+        player.frequency_min = body.frequency_min
+        player.frequency_max = body.frequency_max
+        player.is_lft = body.is_lft
+        player.last_riot_sync = now
+        player.updated_at = now
+
+        update_peak_rank(player, riot_data["rank_solo_tier"], riot_data["rank_solo_division"], riot_data["rank_solo_lp"])
+
+        for champ in player.champions:
+            await db.delete(champ)
+        await db.flush()
+
+        for champ in riot_data["champions"]:
+            player.champions.append(
+                PlayerChampion(
+                    champion_id=champ["champion_id"],
+                    champion_name=champ["champion_name"],
+                    mastery_level=champ["mastery_level"],
+                    mastery_points=champ["mastery_points"],
+                    games_played=champ["games_played"],
+                    wins=champ["wins"],
+                    losses=champ["losses"],
+                    avg_kills=champ["avg_kills"],
+                    avg_deaths=champ["avg_deaths"],
+                    avg_assists=champ["avg_assists"],
+                )
             )
+    else:
+        player = Player(
+            riot_puuid=riot_data["puuid"],
+            riot_game_name=riot_data["game_name"],
+            riot_tag_line=riot_data["tag_line"],
+            slug=slug,
+            summoner_level=riot_data["summoner_level"],
+            profile_icon_id=riot_data["profile_icon_id"],
+            rank_solo_tier=riot_data["rank_solo_tier"],
+            rank_solo_division=riot_data["rank_solo_division"],
+            rank_solo_lp=riot_data["rank_solo_lp"],
+            rank_solo_wins=riot_data["rank_solo_wins"],
+            rank_solo_losses=riot_data["rank_solo_losses"],
+            rank_flex_tier=riot_data["rank_flex_tier"],
+            rank_flex_division=riot_data["rank_flex_division"],
+            rank_flex_lp=riot_data["rank_flex_lp"],
+            rank_flex_wins=riot_data["rank_flex_wins"],
+            rank_flex_losses=riot_data["rank_flex_losses"],
+            peak_solo_tier=riot_data["rank_solo_tier"],
+            peak_solo_division=riot_data["rank_solo_division"],
+            peak_solo_lp=riot_data["rank_solo_lp"],
+            primary_role=riot_data["primary_role"],
+            secondary_role=riot_data["secondary_role"],
+            discord_user_id=token_data.discord_user_id,
+            discord_username=token_data.discord_username,
+            description=body.description,
+            activities=body.activities,
+            ambiance=body.ambiance,
+            frequency_min=body.frequency_min,
+            frequency_max=body.frequency_max,
+            is_lft=body.is_lft,
+            last_riot_sync=now,
         )
 
-    db.add(player)
+        for champ in riot_data["champions"]:
+            player.champions.append(
+                PlayerChampion(
+                    champion_id=champ["champion_id"],
+                    champion_name=champ["champion_name"],
+                    mastery_level=champ["mastery_level"],
+                    mastery_points=champ["mastery_points"],
+                    games_played=champ["games_played"],
+                    wins=champ["wins"],
+                    losses=champ["losses"],
+                    avg_kills=champ["avg_kills"],
+                    avg_deaths=champ["avg_deaths"],
+                    avg_assists=champ["avg_assists"],
+                )
+            )
+
+        db.add(player)
+
     await db.flush()
 
     await record_rank_snapshot(db, player.id, riot_data, recorded_at=now)
@@ -170,15 +228,9 @@ async def get_player(
     slug: str,
     request: Request,
     background_tasks: BackgroundTasks,
-    token: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     player = await _get_player_or_404(slug, db)
-
-    if not player.is_lft:
-        token_data = validate_token(token) if token else None
-        if not token_data or token_data.action != "edit" or token_data.slug != slug:
-            raise HTTPException(404, "Player not found")
 
     if player.last_riot_sync:
         elapsed = datetime.now(timezone.utc) - player.last_riot_sync.replace(tzinfo=timezone.utc)
@@ -197,6 +249,7 @@ async def list_players(
     is_lft: bool | None = Query(None),
     role: str | None = Query(None),
     min_rank: str | None = Query(None),
+    max_rank: str | None = Query(None),
     limit: int = Query(20, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -213,6 +266,11 @@ async def list_players(
     if min_rank and min_rank.upper() in RANK_ORDER:
         min_val = RANK_ORDER[min_rank.upper()]
         valid_tiers = [t for t, v in RANK_ORDER.items() if v >= min_val]
+        stmt = stmt.where(Player.rank_solo_tier.in_(valid_tiers))
+        count_stmt = count_stmt.where(Player.rank_solo_tier.in_(valid_tiers))
+    if max_rank and max_rank.upper() in RANK_ORDER:
+        max_val = RANK_ORDER[max_rank.upper()]
+        valid_tiers = [t for t, v in RANK_ORDER.items() if v <= max_val]
         stmt = stmt.where(Player.rank_solo_tier.in_(valid_tiers))
         count_stmt = count_stmt.where(Player.rank_solo_tier.in_(valid_tiers))
 
@@ -335,3 +393,24 @@ async def refresh_player(slug: str, request: Request, db: AsyncSession = Depends
     stmt = select(Player).options(selectinload(Player.champions)).where(Player.id == player.id)
     result = await db.execute(stmt)
     return result.scalar_one()
+
+
+@router.post("/players/{slug}/reactivate", status_code=200)
+async def reactivate_player(
+    slug: str,
+    x_bot_secret: str = Header(...),
+    discord_user_id: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    if x_bot_secret != settings.bot_api_secret:
+        raise HTTPException(403, "Invalid bot secret")
+
+    player = await _get_player_or_404(slug, db)
+
+    if player.discord_user_id != discord_user_id:
+        raise HTTPException(403, "Not authorized")
+
+    player.is_lft = True
+    player.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"status": "reactivated"}

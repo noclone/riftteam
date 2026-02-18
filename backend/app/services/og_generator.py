@@ -217,3 +217,102 @@ async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
     buf = BytesIO()
     img.save(buf, format="PNG", optimize=True)
     return buf.getvalue()
+
+
+async def generate_team_og_image(team: dict) -> bytes:
+    dark = (24, 24, 32)
+    min_tier = team.get("min_rank")
+    rank_color = _rank_rgb(min_tier)
+
+    img = Image.new("RGB", (CARD_W, CARD_H), dark)
+    draw = ImageDraw.Draw(img)
+
+    draw.rectangle([0, 0, CARD_W, 8], fill=rank_color)
+
+    font_name = _load_font(56, bold=True)
+    font_sub = _load_font(34)
+    font_role = _load_font(28, bold=True)
+    font_member = _load_font(26)
+    font_brand = _load_font(24)
+
+    cx = CARD_W // 2
+
+    name = team.get("name", "")
+    name_bbox = draw.textbbox((0, 0), name, font=font_name)
+    name_w = name_bbox[2] - name_bbox[0]
+    draw.text((cx - name_w // 2, 30), name, fill=(255, 255, 255), font=font_name)
+
+    min_r = team.get("min_rank")
+    max_r = team.get("max_rank")
+    if min_r or max_r:
+        rank_text = ""
+        if min_r:
+            rank_text = min_r.capitalize()
+        if max_r:
+            rank_text += f" → {max_r.capitalize()}"
+        rank_bbox = draw.textbbox((0, 0), rank_text, font=font_sub)
+        rank_w = rank_bbox[2] - rank_bbox[0]
+        draw.text((cx - rank_w // 2, 100), rank_text, fill=rank_color, font=font_sub)
+
+    roles = team.get("wanted_roles", [])
+    members = team.get("members", [])
+    slot_y = 170
+    slot_x = 80
+    slot_gap = (CARD_W - 160) // 5
+
+    all_roles = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+    member_by_role = {}
+    for m in members:
+        member_by_role[m.get("role", "")] = m
+
+    for i, role in enumerate(all_roles):
+        x = slot_x + i * slot_gap
+        member = member_by_role.get(role)
+        is_wanted = role in roles
+
+        role_label = ROLE_LABELS_FULL.get(role, role)
+        role_bbox = draw.textbbox((0, 0), role_label, font=font_role)
+        role_w = role_bbox[2] - role_bbox[0]
+        draw.text((x + slot_gap // 2 - role_w // 2, slot_y), role_label, fill=(100, 180, 255), font=font_role)
+
+        box_y = slot_y + 40
+        box_w = slot_gap - 20
+        box_h = 120
+        bx = x + 10
+
+        if member:
+            draw.rounded_rectangle([bx, box_y, bx + box_w, box_y + box_h], radius=10, fill=(40, 40, 55))
+            riot_id = f"{member.get('riot_game_name', '')}#{member.get('riot_tag_line', '')}"
+            tier = member.get("rank_solo_tier")
+            tier_label = tier.capitalize() if tier else "Unranked"
+
+            draw.text((bx + 10, box_y + 15), riot_id[:12], fill=(255, 255, 255), font=font_member)
+            tier_color = _rank_rgb(tier)
+            draw.text((bx + 10, box_y + 50), tier_label, fill=tier_color, font=font_member)
+        elif is_wanted:
+            draw.rounded_rectangle([bx, box_y, bx + box_w, box_y + box_h], radius=10, outline=(100, 180, 255), width=2)
+            q_bbox = draw.textbbox((0, 0), "?", font=font_name)
+            q_w = q_bbox[2] - q_bbox[0]
+            draw.text((bx + box_w // 2 - q_w // 2, box_y + 25), "?", fill=(100, 180, 255), font=font_name)
+        else:
+            draw.rounded_rectangle([bx, box_y, bx + box_w, box_y + box_h], radius=10, fill=(30, 30, 40))
+
+    ACTIVITY_LABELS = {
+        "SCRIMS": "Scrims",
+        "TOURNOIS": "Tournois",
+        "LAN": "LAN",
+        "FLEX": "Flex",
+        "CLASH": "Clash",
+    }
+    activities = team.get("activities") or []
+    if activities:
+        font_activities = _load_font(48, bold=True)
+        label = ", ".join(ACTIVITY_LABELS.get(a, a) for a in activities)
+        bbox = draw.textbbox((0, 0), label, font=font_activities)
+        draw.text((cx - (bbox[2] - bbox[0]) // 2, CARD_H - 105), label, fill=(255, 255, 255), font=font_activities)
+
+    draw.text((CARD_W - 200, CARD_H - 48), "riftteam.gg", fill=(70, 70, 90), font=font_brand)
+
+    buf = BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()

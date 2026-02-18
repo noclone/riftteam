@@ -161,9 +161,9 @@ class ProfileCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    @app_commands.command(name="profil", description="Affiche le profil RiftTeam d'un joueur")
+    @app_commands.command(name="rt-profil", description="Affiche le profil RiftTeam d'un joueur")
     @app_commands.describe(riot_id="Riot ID du joueur (ex: Pseudo#TAG)")
-    async def profil(self, interaction: discord.Interaction, riot_id: str) -> None:
+    async def rt_profil(self, interaction: discord.Interaction, riot_id: str) -> None:
         parts = riot_id.split("#", 1)
         if len(parts) != 2 or not parts[0] or not parts[1]:
             await interaction.response.send_message(
@@ -183,7 +183,7 @@ class ProfileCog(commands.Cog):
                 if resp.status == 404:
                     await interaction.followup.send(
                         f"Profil **{riot_id}** introuvable. "
-                        f"Utilise `/register {riot_id}` pour le créer !",
+                        f"Utilise `/rt-register {riot_id}` pour le créer !",
                     )
                     return
                 resp.raise_for_status()

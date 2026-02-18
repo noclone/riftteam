@@ -1,26 +1,26 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRoute, useRouter, RouterLink } from 'vue-router'
-import { api, type PlayerResponse, type TokenInfo } from '@/api/client'
+import { useRoute, RouterLink } from 'vue-router'
+import { api, type TeamResponse, type TokenInfo } from '@/api/client'
 
 const route = useRoute()
-const router = useRouter()
 const loading = ref(false)
-const saving = ref(false)
 const error = ref('')
-const success = ref('')
 const tokenBlocked = ref(false)
 const tokenInfo = ref<TokenInfo | null>(null)
-const player = ref<PlayerResponse | null>(null)
+const createdTeam = ref<TeamResponse | null>(null)
+const teamUrl = ref('')
 const token = ref('')
-const showDeleteConfirm = ref(false)
 
 const description = ref('')
 const activities = ref<string[]>([])
 const ambiance = ref('')
 const frequencyMin = ref(2)
 const frequencyMax = ref(3)
-const isLft = ref(true)
+const wantedRoles = ref<string[]>([])
+const minRank = ref('')
+const maxRank = ref('')
+const isLfp = ref(true)
 
 const ACTIVITY_OPTIONS = [
   { value: 'SCRIMS', label: 'Scrims' },
@@ -30,13 +30,38 @@ const ACTIVITY_OPTIONS = [
   { value: 'CLASH', label: 'Clash' },
 ]
 
+const ROLE_OPTIONS = [
+  { value: 'TOP', label: 'Top' },
+  { value: 'JUNGLE', label: 'Jungle' },
+  { value: 'MIDDLE', label: 'Mid' },
+  { value: 'BOTTOM', label: 'ADC' },
+  { value: 'UTILITY', label: 'Support' },
+]
+
+const RANK_OPTIONS = [
+  { value: '', label: 'Aucun' },
+  { value: 'IRON', label: 'Iron' },
+  { value: 'BRONZE', label: 'Bronze' },
+  { value: 'SILVER', label: 'Silver' },
+  { value: 'GOLD', label: 'Gold' },
+  { value: 'PLATINUM', label: 'Platinum' },
+  { value: 'EMERALD', label: 'Emerald' },
+  { value: 'DIAMOND', label: 'Diamond' },
+  { value: 'MASTER', label: 'Master' },
+  { value: 'GRANDMASTER', label: 'Grandmaster' },
+  { value: 'CHALLENGER', label: 'Challenger' },
+]
+
 function toggleActivity(value: string) {
   const idx = activities.value.indexOf(value)
-  if (idx >= 0) {
-    activities.value.splice(idx, 1)
-  } else {
-    activities.value.push(value)
-  }
+  if (idx >= 0) activities.value.splice(idx, 1)
+  else activities.value.push(value)
+}
+
+function toggleRole(value: string) {
+  const idx = wantedRoles.value.indexOf(value)
+  if (idx >= 0) wantedRoles.value.splice(idx, 1)
+  else wantedRoles.value.push(value)
 }
 
 onMounted(async () => {
@@ -49,17 +74,10 @@ onMounted(async () => {
   loading.value = true
   try {
     tokenInfo.value = await api.validateToken(t)
-    if (tokenInfo.value.action !== 'edit' || !tokenInfo.value.slug) {
+    if (tokenInfo.value.action !== 'team_create' || !tokenInfo.value.team_name) {
       tokenBlocked.value = true
       return
     }
-    player.value = await api.getPlayer(tokenInfo.value.slug, t)
-    description.value = player.value.description ?? ''
-    activities.value = player.value.activities ?? []
-    ambiance.value = player.value.ambiance ?? ''
-    frequencyMin.value = player.value.frequency_min ?? 2
-    frequencyMax.value = player.value.frequency_max ?? 3
-    isLft.value = player.value.is_lft
   } catch {
     tokenBlocked.value = true
   } finally {
@@ -67,39 +85,27 @@ onMounted(async () => {
   }
 })
 
-async function saveProfile() {
-  if (!player.value) return
-  saving.value = true
+async function createTeam() {
+  loading.value = true
   error.value = ''
-  success.value = ''
   try {
-    await api.updatePlayer(player.value.slug, {
+    const team = await api.createTeam({
       description: description.value || undefined,
-      activities: activities.value,
+      activities: activities.value.length > 0 ? activities.value : undefined,
       ambiance: ambiance.value || undefined,
       frequency_min: frequencyMin.value,
       frequency_max: frequencyMax.value,
-      is_lft: isLft.value,
+      wanted_roles: wantedRoles.value.length > 0 ? wantedRoles.value : undefined,
+      min_rank: minRank.value || undefined,
+      max_rank: maxRank.value || undefined,
+      is_lfp: isLfp.value,
     }, token.value)
-    success.value = 'Profil mis à jour !'
+    createdTeam.value = team
+    teamUrl.value = `${window.location.origin}/t/${team.slug}`
   } catch (e: any) {
     error.value = e.message
   } finally {
-    saving.value = false
-  }
-}
-
-async function deleteProfile() {
-  if (!player.value) return
-  saving.value = true
-  error.value = ''
-  try {
-    await api.deletePlayer(player.value.slug, token.value)
-    router.push('/')
-  } catch (e: any) {
-    error.value = e.message
-  } finally {
-    saving.value = false
+    loading.value = false
   }
 }
 </script>
@@ -107,42 +113,67 @@ async function deleteProfile() {
 <template>
   <div class="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4 sm:p-8">
     <div class="w-full max-w-lg">
-      <h1 class="text-3xl font-bold mb-8 text-center">Modifier mon profil</h1>
+      <h1 class="text-3xl font-bold mb-8 text-center">Créer mon équipe</h1>
 
-      <!-- Token blocked -->
       <div v-if="tokenBlocked" class="bg-gray-800 rounded-xl p-8 text-center">
         <div class="text-4xl mb-4">&#x1F512;</div>
         <h2 class="text-xl font-bold mb-3">Accès réservé</h2>
         <p class="text-gray-400">
-          Pour modifier ton profil, utilise la commande <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-edit</code> sur Discord.
+          Pour créer une équipe, utilise la commande <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-team-create NomEquipe</code> sur Discord.
         </p>
       </div>
 
-      <!-- Loading -->
-      <div v-else-if="loading" class="text-center text-gray-400">
-        Chargement du profil...
+      <div v-else-if="loading && !tokenInfo" class="text-center text-gray-400">
+        Vérification en cours...
       </div>
 
-      <!-- Edit form -->
-      <div v-else-if="player">
-        <div class="bg-gray-800 rounded-xl p-4 mb-6 flex items-center justify-between">
-          <div>
-            <p class="text-lg font-bold">
-              {{ player.riot_game_name }}<span class="text-gray-500">#{{ player.riot_tag_line }}</span>
-            </p>
-            <p class="text-sm text-gray-400">
-              Discord : {{ player.discord_username }}
-            </p>
-          </div>
-          <RouterLink
-            :to="`/p/${player.slug}`"
-            class="text-sm text-indigo-400 hover:text-indigo-300 transition"
-          >
-            Voir mon profil
-          </RouterLink>
+      <template v-else-if="!createdTeam && tokenInfo">
+        <div class="bg-gray-800 rounded-xl p-4 mb-6">
+          <p class="text-lg font-bold">{{ tokenInfo.team_name }}</p>
+          <p class="text-sm text-gray-400">Capitaine : {{ tokenInfo.discord_username }}</p>
         </div>
 
         <div class="space-y-5">
+          <!-- Rôles recherchés -->
+          <div>
+            <label class="block text-sm text-gray-400 mb-2">Rôles recherchés</label>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="opt in ROLE_OPTIONS"
+                :key="opt.value"
+                :class="[
+                  'px-3 py-1.5 rounded-lg text-sm transition',
+                  wantedRoles.includes(opt.value)
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
+                ]"
+                @click="toggleRole(opt.value)"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Elo range -->
+          <div>
+            <label class="block text-sm text-gray-400 mb-2">Range d'elo</label>
+            <div class="flex items-center gap-2">
+              <select
+                v-model="minRank"
+                class="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-sm flex-1"
+              >
+                <option v-for="opt in RANK_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+              </select>
+              <span class="text-gray-400 text-sm">→</span>
+              <select
+                v-model="maxRank"
+                class="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-sm flex-1"
+              >
+                <option v-for="opt in RANK_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+              </select>
+            </div>
+          </div>
+
           <!-- Objectifs -->
           <div>
             <label class="block text-sm text-gray-400 mb-2">Objectifs</label>
@@ -214,20 +245,20 @@ async function deleteProfile() {
             </div>
           </div>
 
-          <!-- LFT toggle -->
+          <!-- LFP toggle -->
           <div class="flex items-center justify-between">
-            <label class="text-sm text-gray-400">Looking for team</label>
+            <label class="text-sm text-gray-400">Looking for players</label>
             <button
               :class="[
                 'relative inline-flex h-6 w-11 items-center rounded-full transition',
-                isLft ? 'bg-indigo-600' : 'bg-gray-700',
+                isLfp ? 'bg-indigo-600' : 'bg-gray-700',
               ]"
-              @click="isLft = !isLft"
+              @click="isLfp = !isLfp"
             >
               <span
                 :class="[
                   'inline-block h-4 w-4 rounded-full bg-white transition-transform',
-                  isLft ? 'translate-x-6' : 'translate-x-1',
+                  isLfp ? 'translate-x-6' : 'translate-x-1',
                 ]"
               />
             </button>
@@ -238,53 +269,45 @@ async function deleteProfile() {
             <textarea
               v-model="description"
               rows="3"
-              placeholder="Parle de toi, de ton style de jeu..."
+              placeholder="Décris ton équipe, ce que vous cherchez..."
               class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white focus:border-indigo-500 focus:outline-none transition"
             />
           </div>
         </div>
 
         <button
-          :disabled="saving"
+          :disabled="loading"
           class="w-full mt-6 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition"
-          @click="saveProfile"
+          @click="createTeam"
         >
-          {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
+          {{ loading ? 'Création...' : 'Créer mon équipe' }}
         </button>
+      </template>
 
-        <p v-if="success" class="mt-3 text-green-400 text-sm text-center">{{ success }}</p>
-        <p v-if="error" class="mt-3 text-red-400 text-sm text-center">{{ error }}</p>
+      <!-- Success -->
+      <div v-if="createdTeam" class="text-center">
+        <div class="bg-gray-800 rounded-xl p-8 mb-6">
+          <div class="text-4xl mb-4">&#x2705;</div>
+          <h2 class="text-2xl font-bold mb-2">Équipe créée !</h2>
+          <p class="text-gray-400 mb-6">Ton équipe est prête. Ajoute des membres avec <code class="bg-gray-700 px-2 py-0.5 rounded text-indigo-300">/rt-team-roster add</code> sur Discord.</p>
 
-        <!-- Danger zone -->
-        <div class="mt-10 border border-red-900/50 rounded-xl p-5">
-          <h3 class="text-red-400 font-semibold mb-2">Zone danger</h3>
-          <p class="text-sm text-gray-400 mb-4">
-            Cette action est irréversible. Ton profil et toutes tes données seront supprimés.
-          </p>
-          <button
-            v-if="!showDeleteConfirm"
-            class="w-full bg-red-900/30 hover:bg-red-900/50 text-red-400 py-2.5 rounded-lg transition"
-            @click="showDeleteConfirm = true"
-          >
-            Supprimer mon profil
-          </button>
-          <div v-else class="flex gap-3">
-            <button
-              class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2.5 rounded-lg transition"
-              @click="showDeleteConfirm = false"
+          <div class="bg-gray-700/50 rounded-lg p-4 mb-6">
+            <p class="text-sm text-gray-400 mb-1">Ton lien</p>
+            <p class="font-mono text-indigo-300 break-all">{{ teamUrl }}</p>
+          </div>
+
+          <div class="flex gap-3 justify-center">
+            <RouterLink
+              :to="`/t/${createdTeam.slug}`"
+              class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2.5 rounded-lg transition"
             >
-              Annuler
-            </button>
-            <button
-              :disabled="saving"
-              class="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition"
-              @click="deleteProfile"
-            >
-              Confirmer la suppression
-            </button>
+              Voir mon équipe
+            </RouterLink>
           </div>
         </div>
       </div>
+
+      <p v-if="error" class="mt-4 text-red-400 text-sm text-center">{{ error }}</p>
     </div>
   </div>
 </template>

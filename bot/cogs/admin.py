@@ -13,9 +13,9 @@ class AdminCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    @app_commands.command(name="setup", description="Configure le channel d'annonces RiftTeam")
+    @app_commands.command(name="rt-setup", description="Configure le channel d'annonces RiftTeam")
     @app_commands.default_permissions(manage_guild=True)
-    async def setup(self, interaction: discord.Interaction) -> None:
+    async def rt_setup(self, interaction: discord.Interaction) -> None:
         assert interaction.guild is not None
         announcement_channels[interaction.guild.id] = interaction.channel_id
         log.info("Announcement channel set to %d for guild %d", interaction.channel_id, interaction.guild.id)

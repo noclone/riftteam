@@ -10,12 +10,13 @@ router = APIRouter(tags=["tokens"])
 
 
 class TokenCreateRequest(BaseModel):
-    action: Literal["create", "edit"]
+    action: Literal["create", "edit", "team_create", "team_edit"]
     discord_user_id: str
     discord_username: str
     game_name: str | None = None
     tag_line: str | None = None
     slug: str | None = None
+    team_name: str | None = None
 
 
 class TokenCreateResponse(BaseModel):
@@ -29,6 +30,7 @@ class TokenValidateResponse(BaseModel):
     game_name: str | None = None
     tag_line: str | None = None
     slug: str | None = None
+    team_name: str | None = None
 
 
 @router.post("/tokens", response_model=TokenCreateResponse)
@@ -46,9 +48,16 @@ async def create_token_endpoint(
         game_name=body.game_name,
         tag_line=body.tag_line,
         slug=body.slug,
+        team_name=body.team_name,
     )
 
-    path = "/create" if body.action == "create" else "/edit"
+    paths = {
+        "create": "/create",
+        "edit": "/edit",
+        "team_create": "/team/create",
+        "team_edit": "/team/edit",
+    }
+    path = paths[body.action]
     url = f"{settings.app_url}{path}?token={data.token}"
 
     return TokenCreateResponse(token=data.token, url=url)
@@ -66,4 +75,5 @@ async def validate_token_endpoint(token: str):
         game_name=data.game_name,
         tag_line=data.tag_line,
         slug=data.slug,
+        team_name=data.team_name,
     )

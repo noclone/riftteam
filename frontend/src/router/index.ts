@@ -28,6 +28,21 @@ const router = createRouter({
       name: 'browse',
       component: () => import('@/views/BrowseView.vue'),
     },
+    {
+      path: '/t/:slug',
+      name: 'team',
+      component: () => import('@/views/TeamView.vue'),
+    },
+    {
+      path: '/team/create',
+      name: 'team-create',
+      component: () => import('@/views/CreateTeamView.vue'),
+    },
+    {
+      path: '/team/edit',
+      name: 'team-edit',
+      component: () => import('@/views/EditTeamView.vue'),
+    },
   ],
 })
 

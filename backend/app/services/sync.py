@@ -1,12 +1,13 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import async_session
 from app.models.player import Player
+from app.models.team import Team
 from app.services.snapshots import record_rank_snapshot, update_peak_rank
 from shared.riot_client import RiotAPIError, RiotClient
 
@@ -106,3 +107,42 @@ async def _sync_player_rank(player: Player, client: RiotClient) -> None:
         update_peak_rank(p, rank_solo_tier, rank_solo_division, rank_solo_lp)
 
         await db.commit()
+
+
+INACTIVITY_THRESHOLD = timedelta(days=14)
+
+
+async def deactivate_inactive() -> dict[str, list[str]]:
+    cutoff = datetime.now(timezone.utc) - INACTIVITY_THRESHOLD
+    deactivated_players: list[str] = []
+    deactivated_teams: list[str] = []
+
+    async with async_session() as db:
+        player_stmt = (
+            select(Player)
+            .where(Player.is_lft == True, Player.updated_at < cutoff, Player.discord_user_id.isnot(None))
+        )
+        result = await db.execute(player_stmt)
+        players = list(result.scalars().all())
+        for p in players:
+            p.is_lft = False
+            deactivated_players.append(p.discord_user_id)
+        await db.commit()
+
+    async with async_session() as db:
+        team_stmt = (
+            select(Team)
+            .where(Team.is_lfp == True, Team.updated_at < cutoff)
+        )
+        result = await db.execute(team_stmt)
+        teams = list(result.scalars().all())
+        for t in teams:
+            t.is_lfp = False
+            deactivated_teams.append(t.captain_discord_id)
+        await db.commit()
+
+    logger.info(
+        "Deactivated %d players, %d teams for inactivity",
+        len(deactivated_players), len(deactivated_teams),
+    )
+    return {"players": deactivated_players, "teams": deactivated_teams}

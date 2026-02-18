@@ -1,0 +1,358 @@
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.config import settings
+from app.database import get_db
+from app.models.player import Player
+from app.models.team import Team, TeamMember
+from app.schemas.team import (
+    RosterAddRequest,
+    TeamCreate,
+    TeamListResponse,
+    TeamResponse,
+    TeamUpdate,
+)
+from app.services.riot_api import fetch_full_profile
+from app.services.token_store import consume_token, validate_token
+from shared.constants import RANK_ORDER
+from shared.riot_client import RiotAPIError, RiotClient
+
+router = APIRouter(tags=["teams"])
+
+VALID_ROLES = {"TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"}
+
+
+def _get_riot_client(request: Request) -> RiotClient:
+    client = getattr(request.app.state, "riot_client", None)
+    if client:
+        return client
+    if not settings.riot_api_key:
+        raise HTTPException(503, "Riot API key not configured")
+    return RiotClient(settings.riot_api_key)
+
+
+async def _get_team_or_404(slug: str, db: AsyncSession) -> Team:
+    stmt = select(Team).options(selectinload(Team.members).selectinload(TeamMember.player)).where(Team.slug == slug)
+    result = await db.execute(stmt)
+    team = result.scalar_one_or_none()
+    if not team:
+        raise HTTPException(404, "Team not found")
+    return team
+
+
+@router.post("/teams", response_model=TeamResponse, status_code=201)
+async def create_team(
+    body: TeamCreate,
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    token_data = consume_token(token, "team_create")
+    if token_data is None:
+        raise HTTPException(403, "Token invalide ou expiré")
+
+    team_name = token_data.team_name
+    if not team_name:
+        raise HTTPException(400, "Token incomplet (team_name manquant)")
+
+    slug = Team.make_slug(team_name)
+    existing = await db.execute(select(Team).where(Team.slug == slug))
+    if existing.scalar_one_or_none():
+        raise HTTPException(409, f"Une équipe avec le slug '{slug}' existe déjà")
+
+    captain_check = await db.execute(select(Team).where(Team.captain_discord_id == token_data.discord_user_id))
+    if captain_check.scalar_one_or_none():
+        raise HTTPException(409, "Tu es déjà capitaine d'une équipe")
+
+    now = datetime.now(timezone.utc)
+    team = Team(
+        name=team_name,
+        slug=slug,
+        captain_discord_id=token_data.discord_user_id,
+        captain_discord_name=token_data.discord_username,
+        description=body.description,
+        activities=body.activities,
+        ambiance=body.ambiance,
+        frequency_min=body.frequency_min,
+        frequency_max=body.frequency_max,
+        wanted_roles=body.wanted_roles,
+        min_rank=body.min_rank,
+        max_rank=body.max_rank,
+        is_lfp=body.is_lfp,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(team)
+    await db.commit()
+
+    stmt = select(Team).options(selectinload(Team.members).selectinload(TeamMember.player)).where(Team.id == team.id)
+    result = await db.execute(stmt)
+    return result.scalar_one()
+
+
+@router.get("/teams/by-captain/{discord_user_id}", response_model=TeamResponse)
+async def get_team_by_captain(discord_user_id: str, db: AsyncSession = Depends(get_db)):
+    stmt = (
+        select(Team)
+        .options(selectinload(Team.members).selectinload(TeamMember.player))
+        .where(Team.captain_discord_id == discord_user_id)
+    )
+    result = await db.execute(stmt)
+    team = result.scalar_one_or_none()
+    if not team:
+        raise HTTPException(404, "Team not found")
+    return team
+
+
+@router.get("/teams/{slug}", response_model=TeamResponse)
+async def get_team(
+    slug: str,
+    token: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    team = await _get_team_or_404(slug, db)
+
+    if not team.is_lfp:
+        token_data = validate_token(token) if token else None
+        if not token_data or token_data.action != "team_edit" or token_data.slug != slug:
+            raise HTTPException(404, "Team not found")
+
+    return team
+
+
+@router.get("/teams", response_model=TeamListResponse)
+async def list_teams(
+    is_lfp: bool | None = Query(None),
+    role: str | None = Query(None),
+    min_rank: str | None = Query(None),
+    max_rank: str | None = Query(None),
+    limit: int = Query(20, le=100),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(Team).options(selectinload(Team.members).selectinload(TeamMember.player))
+    count_stmt = select(func.count(Team.id))
+
+    if is_lfp is not None:
+        stmt = stmt.where(Team.is_lfp == is_lfp)
+        count_stmt = count_stmt.where(Team.is_lfp == is_lfp)
+    if role:
+        stmt = stmt.where(Team.wanted_roles.any(role.upper()))
+        count_stmt = count_stmt.where(Team.wanted_roles.any(role.upper()))
+    if min_rank and min_rank.upper() in RANK_ORDER:
+        min_val = RANK_ORDER[min_rank.upper()]
+        valid_tiers = [t for t, v in RANK_ORDER.items() if v >= min_val]
+        stmt = stmt.where(Team.min_rank.in_(valid_tiers) | Team.min_rank.is_(None))
+        count_stmt = count_stmt.where(Team.min_rank.in_(valid_tiers) | Team.min_rank.is_(None))
+    if max_rank and max_rank.upper() in RANK_ORDER:
+        max_val = RANK_ORDER[max_rank.upper()]
+        valid_tiers = [t for t, v in RANK_ORDER.items() if v <= max_val]
+        stmt = stmt.where(Team.max_rank.in_(valid_tiers) | Team.max_rank.is_(None))
+        count_stmt = count_stmt.where(Team.max_rank.in_(valid_tiers) | Team.max_rank.is_(None))
+
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar_one()
+
+    stmt = stmt.order_by(Team.updated_at.desc()).limit(limit).offset(offset)
+    result = await db.execute(stmt)
+    teams = list(result.scalars().all())
+
+    return TeamListResponse(teams=teams, total=total)
+
+
+@router.patch("/teams/{slug}", response_model=TeamResponse)
+async def update_team(
+    slug: str,
+    body: TeamUpdate,
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    token_data = validate_token(token)
+    if token_data is None or token_data.action != "team_edit" or token_data.slug != slug:
+        raise HTTPException(403, "Token invalide ou expiré")
+
+    team = await _get_team_or_404(slug, db)
+    update_data = body.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(team, field, value)
+    team.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    stmt = select(Team).options(selectinload(Team.members).selectinload(TeamMember.player)).where(Team.id == team.id)
+    result = await db.execute(stmt)
+    return result.scalar_one()
+
+
+@router.delete("/teams/{slug}", status_code=204)
+async def delete_team(
+    slug: str,
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    token_data = validate_token(token)
+    if token_data is None or token_data.action != "team_edit" or token_data.slug != slug:
+        raise HTTPException(403, "Token invalide ou expiré")
+
+    team = await _get_team_or_404(slug, db)
+    await db.delete(team)
+    await db.commit()
+
+
+@router.post("/teams/{slug}/members", response_model=TeamResponse)
+async def add_member(
+    slug: str,
+    body: RosterAddRequest,
+    request: Request,
+    x_bot_secret: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+):
+    if x_bot_secret != settings.bot_api_secret:
+        raise HTTPException(403, "Invalid bot secret")
+
+    team = await _get_team_or_404(slug, db)
+
+    if team.captain_discord_id != body.discord_user_id:
+        raise HTTPException(403, "Seul le capitaine peut modifier le roster")
+
+    if body.role.upper() not in VALID_ROLES:
+        raise HTTPException(400, f"Rôle invalide. Choix : {', '.join(sorted(VALID_ROLES))}")
+
+    stmt = select(Player).where(Player.slug == body.player_slug)
+    result = await db.execute(stmt)
+    player = result.scalar_one_or_none()
+
+    if not player:
+        name_parts = body.player_slug.split("-", 1)
+        if len(name_parts) != 2:
+            raise HTTPException(400, "Format de slug invalide (attendu: Pseudo-TAG)")
+
+        game_name, tag_line = name_parts
+        client = _get_riot_client(request)
+        try:
+            riot_data = await fetch_full_profile(game_name, tag_line, client)
+        except RiotAPIError as e:
+            if e.status == 404:
+                raise HTTPException(404, "Riot ID introuvable")
+            raise HTTPException(502, f"Riot API error: {e.message}")
+
+        from app.models.champion import PlayerChampion
+
+        now = datetime.now(timezone.utc)
+        player = Player(
+            riot_puuid=riot_data["puuid"],
+            riot_game_name=riot_data["game_name"],
+            riot_tag_line=riot_data["tag_line"],
+            slug=Player.make_slug(riot_data["game_name"], riot_data["tag_line"]),
+            summoner_level=riot_data["summoner_level"],
+            profile_icon_id=riot_data["profile_icon_id"],
+            rank_solo_tier=riot_data["rank_solo_tier"],
+            rank_solo_division=riot_data["rank_solo_division"],
+            rank_solo_lp=riot_data["rank_solo_lp"],
+            rank_solo_wins=riot_data["rank_solo_wins"],
+            rank_solo_losses=riot_data["rank_solo_losses"],
+            rank_flex_tier=riot_data["rank_flex_tier"],
+            rank_flex_division=riot_data["rank_flex_division"],
+            rank_flex_lp=riot_data["rank_flex_lp"],
+            rank_flex_wins=riot_data["rank_flex_wins"],
+            rank_flex_losses=riot_data["rank_flex_losses"],
+            peak_solo_tier=riot_data["rank_solo_tier"],
+            peak_solo_division=riot_data["rank_solo_division"],
+            peak_solo_lp=riot_data["rank_solo_lp"],
+            primary_role=riot_data["primary_role"],
+            secondary_role=riot_data["secondary_role"],
+            discord_user_id=None,
+            discord_username=None,
+            is_lft=False,
+            last_riot_sync=now,
+        )
+
+        for champ in riot_data["champions"]:
+            player.champions.append(
+                PlayerChampion(
+                    champion_id=champ["champion_id"],
+                    champion_name=champ["champion_name"],
+                    mastery_level=champ["mastery_level"],
+                    mastery_points=champ["mastery_points"],
+                    games_played=champ["games_played"],
+                    wins=champ["wins"],
+                    losses=champ["losses"],
+                    avg_kills=champ["avg_kills"],
+                    avg_deaths=champ["avg_deaths"],
+                    avg_assists=champ["avg_assists"],
+                )
+            )
+
+        db.add(player)
+        await db.flush()
+
+    existing_membership = await db.execute(
+        select(TeamMember).where(TeamMember.player_id == player.id)
+    )
+    if existing_membership.scalar_one_or_none():
+        raise HTTPException(409, "Ce joueur est déjà membre d'une équipe")
+
+    member = TeamMember(team_id=team.id, player_id=player.id, role=body.role.upper())
+    db.add(member)
+    team.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    stmt = select(Team).options(selectinload(Team.members).selectinload(TeamMember.player)).where(Team.id == team.id)
+    result = await db.execute(stmt)
+    return result.scalar_one()
+
+
+@router.delete("/teams/{slug}/members/{player_slug}", status_code=204)
+async def remove_member(
+    slug: str,
+    player_slug: str,
+    x_bot_secret: str = Header(...),
+    discord_user_id: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    if x_bot_secret != settings.bot_api_secret:
+        raise HTTPException(403, "Invalid bot secret")
+
+    team = await _get_team_or_404(slug, db)
+
+    if team.captain_discord_id != discord_user_id:
+        raise HTTPException(403, "Seul le capitaine peut modifier le roster")
+
+    player_stmt = select(Player).where(Player.slug == player_slug)
+    player_result = await db.execute(player_stmt)
+    player = player_result.scalar_one_or_none()
+    if not player:
+        raise HTTPException(404, "Joueur introuvable")
+
+    member_stmt = select(TeamMember).where(TeamMember.team_id == team.id, TeamMember.player_id == player.id)
+    member_result = await db.execute(member_stmt)
+    member = member_result.scalar_one_or_none()
+    if not member:
+        raise HTTPException(404, "Ce joueur n'est pas dans l'équipe")
+
+    await db.delete(member)
+    team.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+
+
+@router.post("/teams/{slug}/reactivate", status_code=200)
+async def reactivate_team(
+    slug: str,
+    x_bot_secret: str = Header(...),
+    discord_user_id: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    if x_bot_secret != settings.bot_api_secret:
+        raise HTTPException(403, "Invalid bot secret")
+
+    team = await _get_team_or_404(slug, db)
+
+    if team.captain_discord_id != discord_user_id:
+        raise HTTPException(403, "Seul le capitaine peut réactiver l'équipe")
+
+    team.is_lfp = True
+    team.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"status": "reactivated"}

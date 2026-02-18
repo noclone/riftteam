@@ -57,6 +57,31 @@ export const api = {
   validateToken(token: string) {
     return request<TokenInfo>(`/tokens/${encodeURIComponent(token)}/validate`)
   },
+  createTeam(data: TeamCreateRequest, token: string) {
+    return request<TeamResponse>(`/teams?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+  getTeam(slug: string, token?: string) {
+    const qs = token ? `?token=${encodeURIComponent(token)}` : ''
+    return request<TeamResponse>(`/teams/${encodeURIComponent(slug)}${qs}`)
+  },
+  updateTeam(slug: string, data: TeamUpdateRequest, token: string) {
+    return request<TeamResponse>(`/teams/${encodeURIComponent(slug)}?token=${encodeURIComponent(token)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  },
+  deleteTeam(slug: string, token: string) {
+    return request<void>(`/teams/${encodeURIComponent(slug)}?token=${encodeURIComponent(token)}`, {
+      method: 'DELETE',
+    })
+  },
+  listTeams(params?: Record<string, string>) {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : ''
+    return request<TeamListResponse>(`/teams${qs}`)
+  },
 }
 
 export interface TokenInfo {
@@ -65,6 +90,7 @@ export interface TokenInfo {
   game_name: string | null
   tag_line: string | null
   slug: string | null
+  team_name: string | null
 }
 
 export interface RiotCheckResponse {
@@ -144,4 +170,68 @@ export interface PlayerUpdateRequest {
   frequency_min?: number
   frequency_max?: number
   is_lft?: boolean
+}
+
+export interface TeamMemberResponse {
+  player: {
+    id: string
+    slug: string
+    riot_game_name: string
+    riot_tag_line: string
+    rank_solo_tier: string | null
+    rank_solo_division: string | null
+    rank_solo_lp: number | null
+    primary_role: string | null
+    profile_icon_id: number | null
+  }
+  role: string
+}
+
+export interface TeamResponse {
+  id: string
+  name: string
+  slug: string
+  captain_discord_id: string
+  captain_discord_name: string | null
+  description: string | null
+  activities: string[] | null
+  ambiance: string | null
+  frequency_min: number | null
+  frequency_max: number | null
+  wanted_roles: string[] | null
+  min_rank: string | null
+  max_rank: string | null
+  is_lfp: boolean
+  created_at: string
+  updated_at: string
+  members: TeamMemberResponse[]
+}
+
+export interface TeamListResponse {
+  teams: TeamResponse[]
+  total: number
+}
+
+export interface TeamCreateRequest {
+  description?: string
+  activities?: string[]
+  ambiance?: string
+  frequency_min?: number
+  frequency_max?: number
+  wanted_roles?: string[]
+  min_rank?: string
+  max_rank?: string
+  is_lfp?: boolean
+}
+
+export interface TeamUpdateRequest {
+  description?: string
+  activities?: string[]
+  ambiance?: string
+  frequency_min?: number
+  frequency_max?: number
+  wanted_roles?: string[]
+  min_rank?: string
+  max_rank?: string
+  is_lfp?: boolean
 }
