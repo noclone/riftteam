@@ -15,5 +15,8 @@ dependencies = [
     "riftteam-shared",
 ]
 
+[project.optional-dependencies]
+test = ["pytest", "pytest-asyncio", "httpx", "aiosqlite"]
+
 [tool.uv.sources]
 riftteam-shared = { path = "../shared", editable = true }

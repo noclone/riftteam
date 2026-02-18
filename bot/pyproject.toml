@@ -7,3 +7,6 @@ dependencies = [
     "aiohttp>=3.11",
     "python-dotenv>=1.0",
 ]
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-asyncio"]
