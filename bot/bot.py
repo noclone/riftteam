@@ -79,9 +79,16 @@ class RiftBot(commands.Bot):
         for discord_id in data.get("players", []):
             try:
                 user = await self.fetch_user(int(discord_id))
+                view = discord.ui.View(timeout=None)
+                view.add_item(discord.ui.Button(
+                    label="Réactiver",
+                    style=discord.ButtonStyle.success,
+                    custom_id=f"rt_reactivate_player:{discord_id}",
+                ))
                 await user.send(
                     "Ton profil LFT a été désactivé pour inactivité (14 jours sans mise à jour). "
-                    "Utilise `/rt-reactivate` pour le réactiver."
+                    "Utilise `/rt-reactivate` pour le réactiver, ou clique directement sur le bouton ci-dessous.",
+                    view=view,
                 )
             except Exception:
                 log.warning("Failed to DM player %s", discord_id)
@@ -89,9 +96,16 @@ class RiftBot(commands.Bot):
         for discord_id in data.get("teams", []):
             try:
                 user = await self.fetch_user(int(discord_id))
+                view = discord.ui.View(timeout=None)
+                view.add_item(discord.ui.Button(
+                    label="Réactiver",
+                    style=discord.ButtonStyle.success,
+                    custom_id=f"rt_reactivate_team:{discord_id}",
+                ))
                 await user.send(
                     "Ton équipe a été désactivée pour inactivité (14 jours sans mise à jour). "
-                    "Utilise `/rt-reactivate` pour la réactiver."
+                    "Utilise `/rt-reactivate` pour la réactiver, ou clique directement sur le bouton ci-dessous.",
+                    view=view,
                 )
             except Exception:
                 log.warning("Failed to DM captain %s", discord_id)

@@ -23,10 +23,6 @@ async def _rank_sync_loop(app: FastAPI) -> None:
             await sync_active_ranks(client=app.state.riot_client)
         except Exception:
             logger.exception("Rank sync loop error")
-        try:
-            await deactivate_inactive()
-        except Exception:
-            logger.exception("Deactivation loop error")
         await asyncio.sleep(SYNC_INTERVAL)
 
 

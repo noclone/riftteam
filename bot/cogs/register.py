@@ -11,7 +11,7 @@ class RegisterCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    @app_commands.command(name="rt-register", description="Crée ton profil RiftTeam à partir de ton Riot ID")
+    @app_commands.command(name="rt-profil-create", description="Crée ton profil RiftTeam à partir de ton Riot ID")
     @app_commands.describe(riot_id="Ton Riot ID (ex: Pseudo#TAG)")
     async def rt_register(self, interaction: discord.Interaction, riot_id: str) -> None:
         parts = riot_id.split("#", 1)
@@ -35,7 +35,7 @@ class RegisterCog(commands.Cog):
                     existing = await resp.json()
                     existing_name = f"{existing['riot_game_name']}#{existing['riot_tag_line']}"
                     await interaction.followup.send(
-                        f"Tu as déjà un profil (**{existing_name}**). Utilise `/rt-edit` pour le modifier.",
+                        f"Tu as déjà un profil (**{existing_name}**). Utilise `/rt-profil-edit` pour le modifier.",
                     )
                     return
         except Exception:

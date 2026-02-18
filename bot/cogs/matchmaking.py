@@ -170,7 +170,7 @@ class MatchmakingCog(commands.Cog):
             async with session.get(f"/api/players/by-discord/{interaction.user.id}") as resp:
                 if resp.status == 404:
                     await interaction.followup.send(
-                        "Tu n'as pas de profil RiftTeam. Utilise `/rt-register Pseudo#TAG` pour en créer un.",
+                        "Tu n'as pas de profil RiftTeam. Utilise `/rt-profil-create Pseudo#TAG` pour en créer un.",
                         ephemeral=True,
                     )
                     return
@@ -405,7 +405,7 @@ class MatchmakingCog(commands.Cog):
         slug = f"{name}-{tag}"
         await self._do_recruit(interaction, slug)
 
-    @app_commands.command(name="rt-post-profil", description="Poste ton profil dans le channel")
+    @app_commands.command(name="rt-profil-post", description="Poste ton profil dans le channel")
     async def rt_post_profil(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
@@ -415,7 +415,7 @@ class MatchmakingCog(commands.Cog):
             async with session.get(f"/api/players/by-discord/{interaction.user.id}") as resp:
                 if resp.status == 404:
                     await interaction.followup.send(
-                        "Tu n'as pas de profil RiftTeam. Utilise `/rt-register Pseudo#TAG` pour en créer un.",
+                        "Tu n'as pas de profil RiftTeam. Utilise `/rt-profil-create Pseudo#TAG` pour en créer un.",
                         ephemeral=True,
                     )
                     return

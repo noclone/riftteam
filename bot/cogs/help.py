@@ -11,60 +11,63 @@ class HelpCog(commands.Cog):
     async def rt_help(self, interaction: discord.Interaction) -> None:
         embed = discord.Embed(
             title="Commandes RiftTeam",
+            description="Toutes les commandes commencent par `/rt-`",
             color=0x5865F2,
         )
 
         embed.add_field(
-            name="Profil joueur",
+            name="\U0001f464 Profil",
             value=(
-                "`/rt-register <Pseudo#TAG>` — Crée ton profil\n"
-                "`/rt-edit` — Modifie ton profil (lien vers le site)\n"
-                "`/rt-profil <Pseudo#TAG>` — Affiche le profil d'un joueur\n"
-                "`/rt-reactivate` — Réactive ton profil / équipe désactivés"
+                "`/rt-profil-create` — Crée ton profil\n"
+                "`/rt-profil-show` — Affiche un profil\n"
+                "`/rt-profil-edit` — Modifie ton profil\n"
+                "`/rt-profil-post` — Partage ton profil dans le channel"
             ),
             inline=False,
         )
 
         embed.add_field(
-            name="Recherche",
+            name="\U0001f6e1\ufe0f \u00c9quipe",
             value=(
-                "`/rt-lfp [role] [min_rank] [max_rank]` — Joueurs qui cherchent une équipe\n"
-                "`/rt-lft [role] [min_rank] [max_rank]` — Équipes qui cherchent des joueurs\n"
-                "`/rt-apply <nom_équipe>` — Postule à une équipe (DM avec boutons accepter/refuser)\n"
-                "`/rt-recruit <Pseudo#TAG>` — Recrute un joueur pour ton équipe (DM avec boutons accepter/refuser)\n"
-                "`/rt-post-profil` — Poste ton profil dans le channel (bouton Recruter)\n"
-                "`/rt-post-team` — Poste ton équipe dans le channel (bouton Postuler)"
+                "`/rt-team-create` — Crée une équipe\n"
+                "`/rt-team-edit` — Modifie ton équipe\n"
+                "`/rt-team-roster add` — Ajoute un joueur\n"
+                "`/rt-team-roster remove` — Retire un joueur\n"
+                "`/rt-post-team` — Partage ton équipe dans le channel"
             ),
             inline=False,
         )
 
         embed.add_field(
-            name="Équipe",
+            name="\U0001f50d Recherche",
             value=(
-                "`/rt-team-create <nom>` — Crée une équipe\n"
-                "`/rt-team-edit` — Modifie ton équipe (lien vers le site)\n"
-                "`/rt-team-roster add <Pseudo#TAG> <role>` — Ajoute un joueur au roster\n"
-                "`/rt-team-roster remove <Pseudo#TAG>` — Retire un joueur du roster"
+                "`/rt-lfp` — Joueurs dispo (filtre r\u00f4le, rang)\n"
+                "`/rt-lft` — \u00c9quipes dispo (filtre r\u00f4le, rang)\n"
+                "`/rt-apply` — Postule \u00e0 une \u00e9quipe\n"
+                "`/rt-recruit` — Recrute un joueur"
             ),
             inline=False,
         )
 
         embed.add_field(
-            name="Scrims",
+            name="\u2694\ufe0f Scrims",
             value=(
-                "`/rt-scrim-post <date> <heure> <format> [fearless] [min_rank] [max_rank]` — Poste un scrim\n"
-                "`/rt-scrim-search [min_rank] [max_rank]` — Cherche des scrims disponibles"
+                "`/rt-scrim-post` — Poste un scrim\n"
+                "`/rt-scrim-search` — Cherche des scrims (date, heure, format, rang)"
             ),
             inline=False,
         )
 
         embed.add_field(
-            name="Admin",
-            value="`/rt-setup` — Configure le channel d'annonces (manage_guild)",
+            name="\u2699\ufe0f Autre",
+            value=(
+                "`/rt-reactivate` — R\u00e9active profil / \u00e9quipe\n"
+                "`/rt-setup` — Channel d'annonces *(admin)*"
+            ),
             inline=False,
         )
 
-        embed.set_footer(text="RiftTeam · riftteam.gg")
+        embed.set_footer(text="RiftTeam \u00b7 riftteam.gg")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
