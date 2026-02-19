@@ -24,6 +24,9 @@ CLAUDE.md
 .DS_Store
 Thumbs.db
 
+# Notes
+TODO.md
+
 # TypeScript
 *.tsbuildinfo
 
