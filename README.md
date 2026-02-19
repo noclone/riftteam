@@ -103,17 +103,9 @@ Toutes les commandes commencent par `/rt-`.
 
 ![Recherche de scrims](docs/images/scrim_search.png)
 
-## Intégrer le bot sur votre serveur
+## Ajouter le bot à votre serveur
 
-Le bot est hébergé et maintenu par l'équipe RiftTeam. Pour l'ajouter à votre serveur Discord, contactez-moi directement :
-
-- **Discord** : `noclone`
-
-Le bot nécessite les permissions suivantes :
-- Envoyer des messages
-- Intégrer des liens (embeds)
-- Utiliser les commandes slash
-- Envoyer des messages privés (notifications de désactivation)
+[**Inviter RiftTeam sur votre serveur Discord**](https://discord.com/oauth2/authorize?client_id=1473337482375467193&scope=bot+applications.commands&permissions=18432)
 
 ## Stack technique
 
