@@ -3,7 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, type PlayerResponse, type ChampionResponse } from '@/api/client'
 import { ROLE_LABELS_LONG as ROLE_LABELS, ROLE_ICONS, ACTIVITY_LABELS, AMBIANCE_LABELS } from '@/constants'
-import { fetchDDragonVersion, profileIconUrl as profileIconUrlById, champIconUrl, rankIconUrl, rankColor, formatRank } from '@/utils'
+import {
+  fetchDDragonVersion,
+  profileIconUrl as profileIconUrlById,
+  champIconUrl,
+  rankIconUrl,
+  rankColor,
+  formatRank,
+} from '@/utils'
 
 const route = useRoute()
 const player = ref<PlayerResponse | null>(null)

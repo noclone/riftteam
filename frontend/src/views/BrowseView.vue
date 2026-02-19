@@ -3,7 +3,15 @@ import { onMounted, ref, computed } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import { api, type PlayerResponse, type TeamResponse } from '@/api/client'
 import { ROLE_LABELS, ROLE_ICONS, ALL_ROLES, ACTIVITY_LABELS, AMBIANCE_LABELS, RANK_TIERS } from '@/constants'
-import { fetchDDragonVersion, profileIconUrl, champIconUrl, rankIconUrl, rankColor, formatRank, formatTier } from '@/utils'
+import {
+  fetchDDragonVersion,
+  profileIconUrl,
+  champIconUrl,
+  rankIconUrl,
+  rankColor,
+  formatRank,
+  formatTier,
+} from '@/utils'
 
 const route = useRoute()
 
@@ -246,14 +254,27 @@ onMounted(async () => {
                   <div class="flex items-center gap-1">
                     <template v-if="t.min_rank">
                       <img :src="rankIconUrl(t.min_rank)" :alt="t.min_rank" class="w-5 h-5" />
-                      <span class="text-sm font-medium" :style="{ color: rankColor(t.min_rank) }">{{ formatTier(t.min_rank) }}</span>
+                      <span class="text-sm font-medium" :style="{ color: rankColor(t.min_rank) }">{{
+                        formatTier(t.min_rank)
+                      }}</span>
                     </template>
-                    <svg v-if="t.min_rank && t.max_rank" class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg
+                      v-if="t.min_rank && t.max_rank"
+                      class="w-4 h-4 text-gray-500"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
                       <path d="M5 12h14M13 6l6 6-6 6" />
                     </svg>
                     <template v-if="t.max_rank">
                       <img :src="rankIconUrl(t.max_rank)" :alt="t.max_rank" class="w-5 h-5" />
-                      <span class="text-sm font-medium" :style="{ color: rankColor(t.max_rank) }">{{ formatTier(t.max_rank) }}</span>
+                      <span class="text-sm font-medium" :style="{ color: rankColor(t.max_rank) }">{{
+                        formatTier(t.max_rank)
+                      }}</span>
                     </template>
                   </div>
                 </template>
@@ -275,7 +296,9 @@ onMounted(async () => {
                       v-if="t.ambiance"
                       :class="[
                         'text-xs font-medium px-2 py-0.5 rounded-full',
-                        t.ambiance === 'TRYHARD' ? 'bg-purple-600/20 text-purple-300' : 'bg-green-600/20 text-green-300',
+                        t.ambiance === 'TRYHARD'
+                          ? 'bg-purple-600/20 text-purple-300'
+                          : 'bg-green-600/20 text-green-300',
                       ]"
                     >
                       {{ AMBIANCE_LABELS[t.ambiance] ?? t.ambiance }}
@@ -289,7 +312,10 @@ onMounted(async () => {
                   </div>
                   <div class="space-y-1">
                     <template v-for="role in ALL_ROLES" :key="role">
-                      <div v-if="teamMembersByRole(t)[role]" class="flex items-center gap-2 bg-gray-700/30 rounded px-2.5 py-1.5">
+                      <div
+                        v-if="teamMembersByRole(t)[role]"
+                        class="flex items-center gap-2 bg-gray-700/30 rounded px-2.5 py-1.5"
+                      >
                         <img :src="ROLE_ICONS[role]" :alt="role" class="w-5 h-5 opacity-70" />
                         <img
                           v-if="profileIconUrl(teamMembersByRole(t)[role].player.profile_icon_id)"
@@ -297,18 +323,30 @@ onMounted(async () => {
                           class="w-7 h-7 rounded"
                         />
                         <span class="text-sm font-medium truncate">
-                          {{ teamMembersByRole(t)[role].player.riot_game_name }}<span class="text-gray-500">#{{ teamMembersByRole(t)[role].player.riot_tag_line }}</span>
+                          {{ teamMembersByRole(t)[role].player.riot_game_name
+                          }}<span class="text-gray-500">#{{ teamMembersByRole(t)[role].player.riot_tag_line }}</span>
                         </span>
                         <img
                           v-if="teamMembersByRole(t)[role].player.rank_solo_tier"
                           :src="rankIconUrl(teamMembersByRole(t)[role].player.rank_solo_tier!)"
                           class="w-4 h-4"
                         />
-                        <span class="text-xs font-semibold" :style="{ color: rankColor(teamMembersByRole(t)[role].player.rank_solo_tier) }">
-                          {{ formatRank(teamMembersByRole(t)[role].player.rank_solo_tier, teamMembersByRole(t)[role].player.rank_solo_division) }}
+                        <span
+                          class="text-xs font-semibold"
+                          :style="{ color: rankColor(teamMembersByRole(t)[role].player.rank_solo_tier) }"
+                        >
+                          {{
+                            formatRank(
+                              teamMembersByRole(t)[role].player.rank_solo_tier,
+                              teamMembersByRole(t)[role].player.rank_solo_division,
+                            )
+                          }}
                         </span>
                         <span
-                          v-if="teamMembersByRole(t)[role].player.rank_solo_lp != null && teamMembersByRole(t)[role].player.rank_solo_tier"
+                          v-if="
+                            teamMembersByRole(t)[role].player.rank_solo_lp != null &&
+                            teamMembersByRole(t)[role].player.rank_solo_tier
+                          "
                           class="text-xs"
                           :style="{ color: rankColor(teamMembersByRole(t)[role].player.rank_solo_tier) }"
                         >

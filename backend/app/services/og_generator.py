@@ -130,7 +130,7 @@ def _draw_chips(
 ) -> None:
     """Draw a row of colored pill chips centered at (cx, y)."""
     font = _load_font(32, bold=True)
-    pad_x, pad_y, gap = 24, 10, 16
+    pad_x, gap = 24, 16
     radius = 22
 
     widths = []
@@ -379,7 +379,6 @@ async def generate_team_og_image(team: dict) -> bytes:
         player = m.get("player", m)
         member_by_role[m.get("role", "")] = player
 
-    member_tiers = [member_by_role.get(r, {}).get("rank_solo_tier") for r in all_roles if r in member_by_role]
     role_rank_icons = await asyncio.gather(
         *[_get_rank_icon(member_by_role[r]["rank_solo_tier"]) if r in member_by_role and member_by_role[r].get("rank_solo_tier") else asyncio.sleep(0) for r in all_roles]
     )

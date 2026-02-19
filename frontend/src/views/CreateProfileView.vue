@@ -277,7 +277,6 @@ async function createProfile() {
             </button>
           </div>
         </div>
-
       </template>
 
       <p v-if="error" class="mt-4 text-red-400 text-sm text-center">{{ error }}</p>
