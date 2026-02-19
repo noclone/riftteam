@@ -18,6 +18,12 @@ class HelpCog(commands.Cog):
         )
 
         embed.add_field(
+            name="\U0001f680 D\u00e9marrage",
+            value="`/rt-get-started` \u2014 Guide de d\u00e9marrage (joueur ou \u00e9quipe)",
+            inline=False,
+        )
+
+        embed.add_field(
             name="\U0001f464 Profil",
             value=(
                 "`/rt-profil-create` — Crée ton profil\n"

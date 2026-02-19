@@ -20,7 +20,7 @@ DEV_GUILD_ID = os.getenv("DEV_GUILD_ID", "")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("riftteam")
 
-COGS = ["cogs.profile", "cogs.lfp", "cogs.register", "cogs.edit", "cogs.team", "cogs.reactivate", "cogs.matchmaking", "cogs.scrim", "cogs.help"]
+COGS = ["cogs.profile", "cogs.lfp", "cogs.register", "cogs.edit", "cogs.team", "cogs.reactivate", "cogs.matchmaking", "cogs.scrim", "cogs.get_started", "cogs.help"]
 
 DEACTIVATION_INTERVAL = 12 * 3600
 

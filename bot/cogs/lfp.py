@@ -121,6 +121,13 @@ class LfpCog(commands.Cog):
                     custom_id=f"rt_contact:{discord_id}",
                 ))
 
+        view.add_item(discord.ui.Button(
+            label="Parcourir les joueurs",
+            style=discord.ButtonStyle.link,
+            url=f"{APP_URL}/browse",
+            row=4,
+        ))
+
         if edit:
             await interaction.edit_original_response(embed=embed, view=view)
         else:

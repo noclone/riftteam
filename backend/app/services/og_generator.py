@@ -6,7 +6,7 @@ from pathlib import Path
 import aiohttp
 from PIL import Image, ImageDraw, ImageFont
 
-from shared.constants import ACTIVITY_LABELS, RANK_COLORS
+from shared.constants import ACTIVITY_LABELS, AMBIANCE_LABELS, RANK_COLORS
 from shared.format import format_rank, format_win_rate
 
 ROLE_LABELS_FULL: dict[str, str] = {
@@ -192,10 +192,23 @@ async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
             else:
                 draw.rounded_rectangle([x, y, x + icon_size, y + icon_size], radius=14, fill=(40, 40, 55))
 
+    bottom_parts: list[str] = []
     activities = player.get("activities") or []
     if activities:
+        bottom_parts.append(", ".join(ACTIVITY_LABELS.get(a, a) for a in activities))
+    ambiance = player.get("ambiance")
+    if ambiance:
+        bottom_parts.append(AMBIANCE_LABELS.get(ambiance, ambiance))
+    freq_min = player.get("frequency_min")
+    freq_max = player.get("frequency_max")
+    if freq_min is not None and freq_max is not None:
+        if freq_min == freq_max:
+            bottom_parts.append(f"{freq_min}x/sem")
+        else:
+            bottom_parts.append(f"{freq_min}-{freq_max}x/sem")
+    if bottom_parts:
         font_activities = _load_font(48, bold=True)
-        label = ", ".join(ACTIVITY_LABELS.get(a, a) for a in activities)
+        label = " \u00b7 ".join(bottom_parts)
         bbox = draw.textbbox((0, 0), label, font=font_activities)
         draw.text((cx - (bbox[2] - bbox[0]) // 2, CARD_H - 105), label, fill=(255, 255, 255), font=font_activities)
 

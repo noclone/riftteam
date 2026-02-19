@@ -2,79 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import { api, type TeamResponse } from '@/api/client'
+import { ROLE_LABELS_LONG as ROLE_LABELS, ROLE_ICONS, ALL_ROLES, ACTIVITY_LABELS, AMBIANCE_LABELS } from '@/constants'
+import { fetchDDragonVersion, profileIconUrl, rankIconUrl, rankColor, formatRank } from '@/utils'
 
 const route = useRoute()
 const team = ref<TeamResponse | null>(null)
 const loading = ref(true)
 const error = ref('')
-
-const DDRAGON_VERSION = ref('15.3.1')
-
-const ROLE_LABELS: Record<string, string> = {
-  TOP: 'Toplaner',
-  JUNGLE: 'Jungler',
-  MIDDLE: 'Midlaner',
-  BOTTOM: 'ADC',
-  UTILITY: 'Support',
-}
-
-const ROLE_ICON_BASE =
-  'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-clash/global/default/assets/images/position-selector/positions'
-const ROLE_ICONS: Record<string, string> = {
-  TOP: `${ROLE_ICON_BASE}/icon-position-top.png`,
-  JUNGLE: `${ROLE_ICON_BASE}/icon-position-jungle.png`,
-  MIDDLE: `${ROLE_ICON_BASE}/icon-position-middle.png`,
-  BOTTOM: `${ROLE_ICON_BASE}/icon-position-bottom.png`,
-  UTILITY: `${ROLE_ICON_BASE}/icon-position-utility.png`,
-}
-
-const ACTIVITY_LABELS: Record<string, string> = {
-  SCRIMS: 'Scrims',
-  TOURNOIS: 'Tournois',
-  LAN: 'LAN',
-  FLEX: 'Flex',
-  CLASH: 'Clash',
-}
-
-const AMBIANCE_LABELS: Record<string, string> = {
-  FUN: 'For fun',
-  TRYHARD: 'Tryhard',
-}
-
-const RANK_COLORS: Record<string, string> = {
-  IRON: '#6B6B6B',
-  BRONZE: '#8B4513',
-  SILVER: '#C0C0C0',
-  GOLD: '#FFD700',
-  PLATINUM: '#00CED1',
-  EMERALD: '#50C878',
-  DIAMOND: '#4169E1',
-  MASTER: '#9B30FF',
-  GRANDMASTER: '#DC143C',
-  CHALLENGER: '#F0E68C',
-}
-
-const ALL_ROLES = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY']
-
-function rankIconUrl(tier: string): string {
-  return `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-crests/${tier.toLowerCase()}.png`
-}
-
-function profileIconUrl(iconId: number | null): string {
-  if (!iconId) return ''
-  return `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION.value}/img/profileicon/${iconId}.png`
-}
-
-function formatRank(tier: string | null, division: string | null): string {
-  if (!tier) return 'Unranked'
-  const t = tier.charAt(0) + tier.slice(1).toLowerCase()
-  if (['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(tier.toUpperCase())) return t
-  return `${t} ${division ?? ''}`
-}
-
-function rankColor(tier: string | null): string {
-  return tier ? (RANK_COLORS[tier.toUpperCase()] ?? '#6B6B6B') : '#6B6B6B'
-}
 
 const membersByRole = computed(() => {
   const map: Record<string, TeamResponse['members'][number]> = {}
@@ -83,16 +17,6 @@ const membersByRole = computed(() => {
   }
   return map
 })
-
-async function fetchDDragonVersion() {
-  try {
-    const res = await fetch('https://ddragon.leagueoflegends.com/api/versions.json')
-    const versions = await res.json()
-    DDRAGON_VERSION.value = versions[0]
-  } catch {
-    // keep default
-  }
-}
 
 onMounted(async () => {
   await fetchDDragonVersion()
@@ -123,14 +47,14 @@ onMounted(async () => {
           <div v-if="team.min_rank || team.max_rank" class="mt-4 flex items-center gap-2">
             <template v-if="team.min_rank">
               <img :src="rankIconUrl(team.min_rank)" :alt="team.min_rank" class="w-7 h-7" />
-              <span class="font-semibold" :style="{ color: RANK_COLORS[team.min_rank.toUpperCase()] ?? '#fff' }">
+              <span class="font-semibold" :style="{ color: rankColor(team.min_rank) }">
                 {{ team.min_rank.charAt(0).toUpperCase() + team.min_rank.slice(1).toLowerCase() }}
               </span>
             </template>
             <span v-if="team.min_rank && team.max_rank" class="text-gray-500">→</span>
             <template v-if="team.max_rank">
               <img :src="rankIconUrl(team.max_rank)" :alt="team.max_rank" class="w-7 h-7" />
-              <span class="font-semibold" :style="{ color: RANK_COLORS[team.max_rank.toUpperCase()] ?? '#fff' }">
+              <span class="font-semibold" :style="{ color: rankColor(team.max_rank) }">
                 {{ team.max_rank.charAt(0).toUpperCase() + team.max_rank.slice(1).toLowerCase() }}
               </span>
             </template>

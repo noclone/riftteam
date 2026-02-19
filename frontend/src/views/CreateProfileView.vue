@@ -1,20 +1,19 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRoute, RouterLink } from 'vue-router'
-import { api, type RiotCheckResponse, type PlayerResponse, type TokenInfo } from '@/api/client'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
+import { api, type RiotCheckResponse, type TokenInfo } from '@/api/client'
+import { fetchDDragonVersion, profileIconUrl } from '@/utils'
 
 const route = useRoute()
+const router = useRouter()
 const step = ref(0)
 const loading = ref(false)
 const error = ref('')
 const tokenBlocked = ref(false)
 const tokenInfo = ref<TokenInfo | null>(null)
 const riotData = ref<RiotCheckResponse | null>(null)
-const createdPlayer = ref<PlayerResponse | null>(null)
-const profileUrl = ref('')
 const token = ref('')
 
-const DDRAGON_VERSION = ref('15.3.1')
 const isClaim = ref(false)
 
 const description = ref('')
@@ -48,21 +47,6 @@ function validationError(): string {
     return 'La fréquence min doit être inférieure ou égale à la fréquence max.'
   if (description.value.length > DESC_MAX) return `La description ne doit pas dépasser ${DESC_MAX} caractères.`
   return ''
-}
-
-function profileIconUrl(iconId: number | null): string {
-  if (!iconId) return ''
-  return `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION.value}/img/profileicon/${iconId}.png`
-}
-
-async function fetchDDragonVersion() {
-  try {
-    const res = await fetch('https://ddragon.leagueoflegends.com/api/versions.json')
-    const versions = await res.json()
-    DDRAGON_VERSION.value = versions[0]
-  } catch {
-    // keep default
-  }
 }
 
 onMounted(async () => {
@@ -118,9 +102,7 @@ async function createProfile() {
       },
       token.value,
     )
-    createdPlayer.value = player
-    profileUrl.value = `${window.location.origin}/p/${player.slug}`
-    step.value = 3
+    router.push(`/p/${player.slug}`)
   } catch (e: any) {
     error.value = e.message
   } finally {
@@ -296,34 +278,6 @@ async function createProfile() {
           </div>
         </div>
 
-        <!-- Step 3: Success -->
-        <div v-if="step === 3 && createdPlayer" class="text-center">
-          <div class="bg-gray-800 rounded-xl p-8 mb-6">
-            <div class="text-4xl mb-4">&#x2705;</div>
-            <h2 class="text-2xl font-bold mb-2">{{ isClaim ? 'Profil attribué !' : 'Profil créé !' }}</h2>
-            <p class="text-gray-400 mb-6">Ton profil est prêt à être partagé.</p>
-
-            <div class="bg-gray-700/50 rounded-lg p-4 mb-6">
-              <p class="text-sm text-gray-400 mb-1">Ton lien</p>
-              <p class="font-mono text-indigo-300 break-all">
-                {{ profileUrl }}
-              </p>
-            </div>
-
-            <div class="flex gap-3 justify-center">
-              <RouterLink
-                :to="`/p/${createdPlayer.slug}`"
-                class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2.5 rounded-lg transition"
-              >
-                Voir mon profil
-              </RouterLink>
-            </div>
-          </div>
-
-          <p class="text-sm text-gray-500">
-            Colle ce lien dans Discord pour un embed riche avec ton rang et tes champions.
-          </p>
-        </div>
       </template>
 
       <p v-if="error" class="mt-4 text-red-400 text-sm text-center">{{ error }}</p>

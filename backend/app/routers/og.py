@@ -130,6 +130,9 @@ async def og_image(slug: str, db: AsyncSession = Depends(get_db)):
         "secondary_role": player.secondary_role,
         "profile_icon_id": player.profile_icon_id,
         "activities": player.activities,
+        "ambiance": player.ambiance,
+        "frequency_min": player.frequency_min,
+        "frequency_max": player.frequency_max,
     }
     champs = [
         {

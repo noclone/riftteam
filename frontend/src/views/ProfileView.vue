@@ -2,6 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, type PlayerResponse, type ChampionResponse } from '@/api/client'
+import { ROLE_LABELS_LONG as ROLE_LABELS, ROLE_ICONS, ACTIVITY_LABELS, AMBIANCE_LABELS } from '@/constants'
+import { fetchDDragonVersion, profileIconUrl as profileIconUrlById, champIconUrl, rankIconUrl, rankColor, formatRank } from '@/utils'
 
 const route = useRoute()
 const player = ref<PlayerResponse | null>(null)
@@ -10,90 +12,19 @@ const error = ref('')
 const refreshing = ref(false)
 const refreshError = ref('')
 
-const DDRAGON_VERSION = ref('15.3.1')
+const soloRankColor = computed(() => rankColor(player.value?.rank_solo_tier ?? null))
+const flexRankColor = computed(() => rankColor(player.value?.rank_flex_tier ?? null))
 
-const ROLE_LABELS: Record<string, string> = {
-  TOP: 'Toplaner',
-  JUNGLE: 'Jungler',
-  MIDDLE: 'Midlaner',
-  BOTTOM: 'ADC',
-  UTILITY: 'Support',
+function playerIconUrl(p: PlayerResponse): string {
+  return profileIconUrlById(p.profile_icon_id)
 }
 
-const ROLE_ICON_BASE =
-  'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-clash/global/default/assets/images/position-selector/positions'
-const ROLE_ICONS: Record<string, string> = {
-  TOP: `${ROLE_ICON_BASE}/icon-position-top.png`,
-  JUNGLE: `${ROLE_ICON_BASE}/icon-position-jungle.png`,
-  MIDDLE: `${ROLE_ICON_BASE}/icon-position-middle.png`,
-  BOTTOM: `${ROLE_ICON_BASE}/icon-position-bottom.png`,
-  UTILITY: `${ROLE_ICON_BASE}/icon-position-utility.png`,
+function formatSoloRank(p: PlayerResponse): string {
+  return formatRank(p.rank_solo_tier, p.rank_solo_division)
 }
 
-const ACTIVITY_LABELS: Record<string, string> = {
-  SCRIMS: 'Scrims',
-  TOURNOIS: 'Tournois',
-  LAN: 'LAN',
-  FLEX: 'Flex',
-  CLASH: 'Clash',
-}
-
-const AMBIANCE_LABELS: Record<string, string> = {
-  FUN: 'For fun',
-  TRYHARD: 'Tryhard',
-}
-
-const RANK_COLORS: Record<string, string> = {
-  IRON: '#6B6B6B',
-  BRONZE: '#8B4513',
-  SILVER: '#C0C0C0',
-  GOLD: '#FFD700',
-  PLATINUM: '#00CED1',
-  EMERALD: '#50C878',
-  DIAMOND: '#4169E1',
-  MASTER: '#9B30FF',
-  GRANDMASTER: '#DC143C',
-  CHALLENGER: '#F0E68C',
-}
-
-const rankColor = computed(() => {
-  const tier = player.value?.rank_solo_tier?.toUpperCase()
-  return tier ? (RANK_COLORS[tier] ?? '#6B6B6B') : '#6B6B6B'
-})
-
-const flexRankColor = computed(() => {
-  const tier = player.value?.rank_flex_tier?.toUpperCase()
-  return tier ? (RANK_COLORS[tier] ?? '#6B6B6B') : '#6B6B6B'
-})
-
-function rankIconUrl(tier: string): string {
-  return `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-crests/${tier.toLowerCase()}.png`
-}
-
-function profileIconUrl(p: PlayerResponse): string {
-  if (!p.profile_icon_id) return ''
-  return `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION.value}/img/profileicon/${p.profile_icon_id}.png`
-}
-
-function champIconUrl(name: string): string {
-  const safe = name.replace(/ /g, '').replace(/'/g, '')
-  return `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION.value}/img/champion/${safe}.png`
-}
-
-function formatRank(p: PlayerResponse): string {
-  if (!p.rank_solo_tier) return 'Unranked'
-  const tier = p.rank_solo_tier.charAt(0) + p.rank_solo_tier.slice(1).toLowerCase()
-  const apex = ['MASTER', 'GRANDMASTER', 'CHALLENGER']
-  if (apex.includes(p.rank_solo_tier.toUpperCase())) return tier
-  return `${tier} ${p.rank_solo_division ?? ''}`
-}
-
-function formatRankFlex(p: PlayerResponse): string {
-  if (!p.rank_flex_tier) return 'Unranked'
-  const tier = p.rank_flex_tier.charAt(0) + p.rank_flex_tier.slice(1).toLowerCase()
-  const apex = ['MASTER', 'GRANDMASTER', 'CHALLENGER']
-  if (apex.includes(p.rank_flex_tier.toUpperCase())) return tier
-  return `${tier} ${p.rank_flex_division ?? ''}`
+function formatFlexRank(p: PlayerResponse): string {
+  return formatRank(p.rank_flex_tier, p.rank_flex_division)
 }
 
 function winRate(p: PlayerResponse): string {
@@ -144,16 +75,6 @@ function flexWinsLosses(p: PlayerResponse): string {
   return `${w}W ${l}L`
 }
 
-async function fetchDDragonVersion() {
-  try {
-    const res = await fetch('https://ddragon.leagueoflegends.com/api/versions.json')
-    const versions = await res.json()
-    DDRAGON_VERSION.value = versions[0]
-  } catch {
-    // keep default
-  }
-}
-
 async function refreshProfile() {
   if (!player.value || refreshing.value) return
   refreshing.value = true
@@ -184,13 +105,13 @@ onMounted(async () => {
     <div v-if="loading" class="text-center text-gray-400 mt-20">Chargement...</div>
     <div v-else-if="error" class="text-center text-red-400 mt-20">{{ error }}</div>
     <div v-else-if="player" class="max-w-2xl mx-auto">
-      <div class="bg-gray-800 rounded-xl overflow-hidden" :style="{ borderTop: `4px solid ${rankColor}` }">
+      <div class="bg-gray-800 rounded-xl overflow-hidden" :style="{ borderTop: `4px solid ${soloRankColor}` }">
         <!-- Header -->
         <div class="p-6 pb-2 sm:p-8 sm:pb-2">
           <div class="flex items-start gap-4 sm:gap-6">
             <img
-              v-if="profileIconUrl(player)"
-              :src="profileIconUrl(player)"
+              v-if="playerIconUrl(player)"
+              :src="playerIconUrl(player)"
               :alt="player.riot_game_name"
               class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl flex-shrink-0"
             />
@@ -213,7 +134,7 @@ onMounted(async () => {
                   :alt="player.rank_solo_tier"
                   class="w-10 h-10"
                 />
-                <span class="text-lg font-bold" :style="{ color: rankColor }">{{ formatRank(player) }}</span>
+                <span class="text-lg font-bold" :style="{ color: soloRankColor }">{{ formatSoloRank(player) }}</span>
                 <span v-if="lpText(player)" class="text-sm text-gray-400">{{ lpText(player) }}</span>
               </div>
               <div class="flex items-center gap-3 text-sm text-gray-400 mt-1">
@@ -230,7 +151,7 @@ onMounted(async () => {
                   :alt="player.rank_flex_tier"
                   class="w-10 h-10"
                 />
-                <span class="text-lg font-bold" :style="{ color: flexRankColor }">{{ formatRankFlex(player) }}</span>
+                <span class="text-lg font-bold" :style="{ color: flexRankColor }">{{ formatFlexRank(player) }}</span>
                 <span v-if="flexLpText(player)" class="text-sm text-gray-400">{{ flexLpText(player) }}</span>
               </div>
               <div class="flex items-center gap-3 text-sm text-gray-400 mt-1">
