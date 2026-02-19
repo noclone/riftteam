@@ -12,10 +12,7 @@
     >
       Ajouter le bot à mon serveur
     </a>
-    <RouterLink
-      to="/create"
-      class="mt-4 text-indigo-400 hover:text-indigo-300 transition"
-    >
+    <RouterLink to="/create" class="mt-4 text-indigo-400 hover:text-indigo-300 transition">
       Créer mon profil
     </RouterLink>
     <RouterLink to="/browse" class="mt-2 text-indigo-400 hover:text-indigo-300 transition">
