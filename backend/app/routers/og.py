@@ -247,12 +247,14 @@ async def team_og_image(slug: str, db: AsyncSession = Depends(get_db)):
         "max_rank": team.max_rank,
         "wanted_roles": team.wanted_roles or [],
         "activities": team.activities or [],
+        "ambiance": team.ambiance,
+        "frequency_min": team.frequency_min,
+        "frequency_max": team.frequency_max,
         "members": [
             {
-                "riot_game_name": m.player.riot_game_name,
-                "riot_tag_line": m.player.riot_tag_line,
                 "role": m.role,
                 "rank_solo_tier": m.player.rank_solo_tier,
+                "rank_solo_lp": m.player.rank_solo_lp,
             }
             for m in team.members
         ],

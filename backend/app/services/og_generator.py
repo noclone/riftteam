@@ -308,9 +308,9 @@ async def generate_team_og_image(team: dict) -> bytes:
     draw.rectangle([0, 0, CARD_W, 8], fill=rank_color)
 
     font_name = _load_font(56, bold=True)
-    font_sub = _load_font(34)
+    font_sub = _load_font(34, bold=True)
     font_role = _load_font(28, bold=True)
-    font_member = _load_font(26)
+    font_lp = _load_font(22)
     font_brand = _load_font(24)
 
     cx = CARD_W // 2
@@ -323,50 +323,114 @@ async def generate_team_og_image(team: dict) -> bytes:
     min_r = team.get("min_rank")
     max_r = team.get("max_rank")
     if min_r or max_r:
-        rank_text = ""
+        rank_icon_size = 40
+        arrow_text = " → "
+        parts_w = 0
         if min_r:
-            rank_text = min_r.capitalize()
+            min_label = min_r.capitalize()
+            min_bbox = draw.textbbox((0, 0), min_label, font=font_sub)
+            parts_w += rank_icon_size + 6 + (min_bbox[2] - min_bbox[0])
+        if min_r and max_r:
+            arrow_bbox = draw.textbbox((0, 0), arrow_text, font=font_sub)
+            parts_w += arrow_bbox[2] - arrow_bbox[0]
         if max_r:
-            rank_text += f" → {max_r.capitalize()}"
-        rank_bbox = draw.textbbox((0, 0), rank_text, font=font_sub)
-        rank_w = rank_bbox[2] - rank_bbox[0]
-        draw.text((cx - rank_w // 2, 100), rank_text, fill=rank_color, font=font_sub)
+            max_label = max_r.capitalize()
+            max_bbox = draw.textbbox((0, 0), max_label, font=font_sub)
+            parts_w += rank_icon_size + 6 + (max_bbox[2] - max_bbox[0])
 
-    roles = team.get("wanted_roles", [])
+        rank_icons = await asyncio.gather(
+            _get_rank_icon(min_r) if min_r else asyncio.sleep(0),
+            _get_rank_icon(max_r) if max_r else asyncio.sleep(0),
+        )
+        min_rank_icon = rank_icons[0] if min_r else None
+        max_rank_icon = rank_icons[1] if max_r else None
+
+        rx = cx - parts_w // 2
+        ry = 100
+        cap_bbox = draw.textbbox((0, ry), "A", font=font_sub)
+        text_mid = (cap_bbox[1] + cap_bbox[3]) // 2
+
+        if min_r:
+            if min_rank_icon:
+                _paste_icon(img, min_rank_icon, (rx, text_mid - rank_icon_size // 2), rank_icon_size)
+            rx += rank_icon_size + 6
+            draw.text((rx, ry), min_r.capitalize(), fill=_rank_rgb(min_r), font=font_sub)
+            t_bbox = draw.textbbox((0, 0), min_r.capitalize(), font=font_sub)
+            rx += t_bbox[2] - t_bbox[0]
+        if min_r and max_r:
+            draw.text((rx, ry), arrow_text, fill=(150, 150, 170), font=font_sub)
+            a_bbox = draw.textbbox((0, 0), arrow_text, font=font_sub)
+            rx += a_bbox[2] - a_bbox[0]
+        if max_r:
+            if max_rank_icon:
+                _paste_icon(img, max_rank_icon, (rx, text_mid - rank_icon_size // 2), rank_icon_size)
+            rx += rank_icon_size + 6
+            draw.text((rx, ry), max_r.capitalize(), fill=_rank_rgb(max_r), font=font_sub)
+
     members = team.get("members", [])
+    wanted_roles = team.get("wanted_roles", [])
     slot_y = 170
     slot_x = 80
     slot_gap = (CARD_W - 160) // 5
 
     all_roles = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
-    member_by_role = {}
+    member_by_role: dict[str, dict] = {}
     for m in members:
-        member_by_role[m.get("role", "")] = m
+        player = m.get("player", m)
+        member_by_role[m.get("role", "")] = player
+
+    member_tiers = [member_by_role.get(r, {}).get("rank_solo_tier") for r in all_roles if r in member_by_role]
+    role_rank_icons = await asyncio.gather(
+        *[_get_rank_icon(member_by_role[r]["rank_solo_tier"]) if r in member_by_role and member_by_role[r].get("rank_solo_tier") else asyncio.sleep(0) for r in all_roles]
+    )
+    role_position_icons = await asyncio.gather(*[_get_role_icon(r) for r in all_roles])
 
     for i, role in enumerate(all_roles):
         x = slot_x + i * slot_gap
-        member = member_by_role.get(role)
-        is_wanted = role in roles
+        player = member_by_role.get(role)
+        is_wanted = role in wanted_roles
+        slot_cx = x + slot_gap // 2
 
+        pos_icon = role_position_icons[i]
         role_label = ROLE_LABELS_SHORT.get(role, role)
-        role_bbox = draw.textbbox((0, 0), role_label, font=font_role)
-        role_w = role_bbox[2] - role_bbox[0]
-        draw.text((x + slot_gap // 2 - role_w // 2, slot_y), role_label, fill=(100, 180, 255), font=font_role)
+        role_bbox_t = draw.textbbox((0, 0), role_label, font=font_role)
+        role_tw = role_bbox_t[2] - role_bbox_t[0]
+        pos_icon_size = 28
+        pos_gap = 4
+        role_total_w = (pos_icon_size + pos_gap if pos_icon else 0) + role_tw
+        role_start_x = slot_cx - role_total_w // 2
 
-        box_y = slot_y + 40
+        if pos_icon:
+            cap_bbox = draw.textbbox((0, slot_y), "A", font=font_role)
+            pos_mid = (cap_bbox[1] + cap_bbox[3]) // 2
+            _paste_icon(img, pos_icon, (role_start_x, pos_mid - pos_icon_size // 2), pos_icon_size)
+            role_start_x += pos_icon_size + pos_gap
+        draw.text((role_start_x, slot_y), role_label, fill=(100, 180, 255), font=font_role)
+
+        box_y = slot_y + 45
         box_w = slot_gap - 20
         box_h = 120
         bx = x + 10
 
-        if member:
+        if player:
             draw.rounded_rectangle([bx, box_y, bx + box_w, box_y + box_h], radius=10, fill=(40, 40, 55))
-            riot_id = f"{member.get('riot_game_name', '')}#{member.get('riot_tag_line', '')}"
-            tier = member.get("rank_solo_tier")
-            tier_label = tier.capitalize() if tier else "Unranked"
-
-            draw.text((bx + 10, box_y + 15), riot_id[:12], fill=(255, 255, 255), font=font_member)
-            tier_color = _rank_rgb(tier)
-            draw.text((bx + 10, box_y + 50), tier_label, fill=tier_color, font=font_member)
+            tier = player.get("rank_solo_tier")
+            rank_img = role_rank_icons[i]
+            r_icon_size = 70
+            if rank_img:
+                icon_x = bx + (box_w - r_icon_size) // 2
+                _paste_icon(img, rank_img, (icon_x, box_y + 8), r_icon_size)
+            lp = player.get("rank_solo_lp")
+            if lp is not None and tier:
+                lp_text = f"{lp} LP"
+                lp_bbox = draw.textbbox((0, 0), lp_text, font=font_lp)
+                lp_w = lp_bbox[2] - lp_bbox[0]
+                draw.text((bx + (box_w - lp_w) // 2, box_y + 82), lp_text, fill=_rank_rgb(tier), font=font_lp)
+            elif not tier:
+                u_text = "Unranked"
+                u_bbox = draw.textbbox((0, 0), u_text, font=font_lp)
+                u_w = u_bbox[2] - u_bbox[0]
+                draw.text((bx + (box_w - u_w) // 2, box_y + box_h // 2 - 10), u_text, fill=(100, 100, 100), font=font_lp)
         elif is_wanted:
             draw.rounded_rectangle([bx, box_y, bx + box_w, box_y + box_h], radius=10, outline=(100, 180, 255), width=2)
             q_bbox = draw.textbbox((0, 0), "?", font=font_name)
@@ -375,12 +439,26 @@ async def generate_team_og_image(team: dict) -> bytes:
         else:
             draw.rounded_rectangle([bx, box_y, bx + box_w, box_y + box_h], radius=10, fill=(30, 30, 40))
 
-    chips: list[tuple[str, tuple[int, int, int], tuple[int, int, int]]] = []
+    row1: list[tuple[str, tuple[int, int, int], tuple[int, int, int]]] = []
+    row2: list[tuple[str, tuple[int, int, int], tuple[int, int, int]]] = []
     activities = team.get("activities") or []
     for a in activities:
-        chips.append((ACTIVITY_LABELS.get(a, a), (103, 232, 249), (21, 48, 61)))
-    if chips:
-        _draw_chips(img, draw, chips, CARD_H - 110, cx)
+        row1.append((ACTIVITY_LABELS.get(a, a), (103, 232, 249), (21, 48, 61)))
+    ambiance = team.get("ambiance")
+    if ambiance:
+        if ambiance == "TRYHARD":
+            row2.append((AMBIANCE_LABELS.get(ambiance, ambiance), (216, 180, 254), (49, 29, 72)))
+        else:
+            row2.append((AMBIANCE_LABELS.get(ambiance, ambiance), (134, 239, 172), (24, 52, 40)))
+    freq_min = team.get("frequency_min")
+    freq_max = team.get("frequency_max")
+    if freq_min is not None and freq_max is not None:
+        freq = f"{freq_min}x/sem" if freq_min == freq_max else f"{freq_min}-{freq_max}x/sem"
+        row2.append((freq, (209, 213, 219), (40, 45, 57)))
+    if row1:
+        _draw_chips(img, draw, row1, CARD_H - 120 - (56 if row2 else 0), cx)
+    if row2:
+        _draw_chips(img, draw, row2, CARD_H - 120, cx)
 
     draw.text((CARD_W - 200, CARD_H - 48), "riftteam.fr", fill=(70, 70, 90), font=font_brand)
 
