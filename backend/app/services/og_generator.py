@@ -9,10 +9,10 @@ from PIL import Image, ImageDraw, ImageFont
 from shared.constants import ACTIVITY_LABELS, AMBIANCE_LABELS, RANK_COLORS
 from shared.format import format_rank, format_win_rate
 
-ROLE_LABELS_FULL: dict[str, str] = {
-    "TOP": "Toplaner",
-    "JUNGLE": "Jungler",
-    "MIDDLE": "Midlaner",
+ROLE_LABELS_SHORT: dict[str, str] = {
+    "TOP": "Top",
+    "JUNGLE": "Jungle",
+    "MIDDLE": "Mid",
     "BOTTOM": "ADC",
     "UTILITY": "Support",
 }
@@ -87,6 +87,13 @@ async def _get_rank_icon(tier: str) -> Image.Image | None:
     return await _download_icon(url, f"rank_{tier_lower}.png")
 
 
+async def _get_role_icon(role: str) -> Image.Image | None:
+    """Fetch a role/position icon from CommunityDragon."""
+    role_lower = role.lower()
+    url = f"https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-clash/global/default/assets/images/position-selector/positions/icon-position-{role_lower}.png"
+    return await _download_icon(url, f"role_{role_lower}.png")
+
+
 async def _get_champion_icon(champion_name: str) -> Image.Image | None:
     """Fetch a champion square icon from Data Dragon."""
     version = await _get_ddragon_version()
@@ -114,6 +121,38 @@ def _paste_icon(dst: Image.Image, src: Image.Image, pos: tuple[int, int], size: 
 
 
 
+def _draw_chips(
+    img: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    chips: list[tuple[str, tuple[int, int, int], tuple[int, int, int]]],
+    y: int,
+    cx: int,
+) -> None:
+    """Draw a row of colored pill chips centered at (cx, y)."""
+    font = _load_font(32, bold=True)
+    pad_x, pad_y, gap = 24, 10, 16
+    radius = 22
+
+    widths = []
+    for label, _, _ in chips:
+        bbox = draw.textbbox((0, 0), label, font=font)
+        widths.append(bbox[2] - bbox[0] + pad_x * 2)
+
+    total_w = sum(widths) + gap * (len(chips) - 1)
+    x = cx - total_w // 2
+
+    for i, (label, text_color, bg_color) in enumerate(chips):
+        w = widths[i]
+        h = 44
+        draw.rounded_rectangle([x, y, x + w, y + h], radius=radius, fill=bg_color)
+        bbox = draw.textbbox((0, 0), label, font=font)
+        tw = bbox[2] - bbox[0]
+        tx = x + (w - tw) // 2
+        ty = y + (h - (bbox[3] - bbox[1])) // 2 - bbox[1]
+        draw.text((tx, ty), label, fill=text_color, font=font)
+        x += w + gap
+
+
 async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
     """Render a 1200x630 PNG Open Graph card for a player profile."""
     rank_color = _rank_rgb(player.get("rank_solo_tier"))
@@ -125,6 +164,7 @@ async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
     draw.rectangle([0, 0, CARD_W, 8], fill=rank_color)
 
     font_name = _load_font(56, bold=True)
+    font_role = _load_font(40, bold=True)
     font_rank = _load_font(52, bold=True)
     font_lp = _load_font(40)
     font_brand = _load_font(24)
@@ -133,19 +173,55 @@ async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
 
     riot_id = f"{player.get('riot_game_name', '')}#{player.get('riot_tag_line', '')}"
     primary = player.get("primary_role")
-    role_label = ROLE_LABELS_FULL.get(primary, "") if primary else ""
+    secondary = player.get("secondary_role")
+    roles: list[str] = []
+    if primary:
+        roles.append(primary)
+    if secondary:
+        roles.append(secondary)
+    role_icons = await asyncio.gather(*[_get_role_icon(r) for r in roles]) if roles else []
+
+    icon_size = 38
+    icon_gap = 4
+    role_gap = 10
 
     id_bbox = draw.textbbox((0, 0), riot_id, font=font_name)
     id_w = id_bbox[2] - id_bbox[0]
-    role_bbox = draw.textbbox((0, 0), role_label, font=font_name) if role_label else (0, 0, 0, 0)
-    role_w = role_bbox[2] - role_bbox[0] if role_label else 0
-    gap = 30 if role_label else 0
-    total_w = id_w + gap + role_w
-    header_x = cx - total_w // 2
 
-    draw.text((header_x, 30), riot_id, fill=(255, 255, 255), font=font_name)
-    if role_label:
-        draw.text((header_x + id_w + gap, 30), role_label, fill=(100, 180, 255), font=font_name)
+    role_parts_w = 0
+    for i, role in enumerate(roles):
+        label = ROLE_LABELS_SHORT.get(role, role)
+        lbbox = draw.textbbox((0, 0), label, font=font_role)
+        part_w = icon_size + icon_gap + (lbbox[2] - lbbox[0])
+        role_parts_w += part_w
+        if i > 0:
+            role_parts_w += role_gap
+
+    gap = 16 if roles else 0
+    total_w = id_w + gap + role_parts_w
+    header_x = cx - total_w // 2
+    header_y = 30
+
+    name_cap = draw.textbbox((0, header_y), "A", font=font_name)
+    name_mid = (name_cap[1] + name_cap[3]) // 2
+
+    draw.text((header_x, header_y), riot_id, fill=(255, 255, 255), font=font_name)
+    role_x = header_x + id_w + gap
+    role_cap = draw.textbbox((0, 0), "A", font=font_role)
+    role_text_y = name_mid - (role_cap[3] - role_cap[1]) // 2 - role_cap[1]
+    for i, role in enumerate(roles):
+        if i > 0:
+            role_x += role_gap
+        icon = role_icons[i]
+        if icon:
+            icon_y = name_mid - icon_size // 2
+            _paste_icon(img, icon, (role_x, icon_y), icon_size)
+        role_x += icon_size + icon_gap
+        label = ROLE_LABELS_SHORT.get(role, role)
+        color = (100, 180, 255) if i == 0 else (80, 130, 190)
+        draw.text((role_x, role_text_y), label, fill=color, font=font_role)
+        lbbox = draw.textbbox((0, 0), label, font=font_role)
+        role_x += lbbox[2] - lbbox[0]
 
     rank_tier = player.get("rank_solo_tier")
     rank_icon_size = 200
@@ -192,25 +268,26 @@ async def generate_og_image(player: dict, champions: list[dict]) -> bytes:
             else:
                 draw.rounded_rectangle([x, y, x + icon_size, y + icon_size], radius=14, fill=(40, 40, 55))
 
-    bottom_parts: list[str] = []
+    row1: list[tuple[str, tuple[int, int, int], tuple[int, int, int]]] = []
+    row2: list[tuple[str, tuple[int, int, int], tuple[int, int, int]]] = []
     activities = player.get("activities") or []
-    if activities:
-        bottom_parts.append(", ".join(ACTIVITY_LABELS.get(a, a) for a in activities))
+    for a in activities:
+        row1.append((ACTIVITY_LABELS.get(a, a), (103, 232, 249), (21, 48, 61)))
     ambiance = player.get("ambiance")
     if ambiance:
-        bottom_parts.append(AMBIANCE_LABELS.get(ambiance, ambiance))
+        if ambiance == "TRYHARD":
+            row2.append((AMBIANCE_LABELS.get(ambiance, ambiance), (216, 180, 254), (49, 29, 72)))
+        else:
+            row2.append((AMBIANCE_LABELS.get(ambiance, ambiance), (134, 239, 172), (24, 52, 40)))
     freq_min = player.get("frequency_min")
     freq_max = player.get("frequency_max")
     if freq_min is not None and freq_max is not None:
-        if freq_min == freq_max:
-            bottom_parts.append(f"{freq_min}x/sem")
-        else:
-            bottom_parts.append(f"{freq_min}-{freq_max}x/sem")
-    if bottom_parts:
-        font_activities = _load_font(48, bold=True)
-        label = " \u00b7 ".join(bottom_parts)
-        bbox = draw.textbbox((0, 0), label, font=font_activities)
-        draw.text((cx - (bbox[2] - bbox[0]) // 2, CARD_H - 105), label, fill=(255, 255, 255), font=font_activities)
+        freq = f"{freq_min}x/sem" if freq_min == freq_max else f"{freq_min}-{freq_max}x/sem"
+        row2.append((freq, (209, 213, 219), (40, 45, 57)))
+    if row1:
+        _draw_chips(img, draw, row1, CARD_H - 120 - (56 if row2 else 0), cx)
+    if row2:
+        _draw_chips(img, draw, row2, CARD_H - 120, cx)
 
     draw.text((CARD_W - 200, CARD_H - 48), "riftteam.fr", fill=(70, 70, 90), font=font_brand)
 
@@ -271,7 +348,7 @@ async def generate_team_og_image(team: dict) -> bytes:
         member = member_by_role.get(role)
         is_wanted = role in roles
 
-        role_label = ROLE_LABELS_FULL.get(role, role)
+        role_label = ROLE_LABELS_SHORT.get(role, role)
         role_bbox = draw.textbbox((0, 0), role_label, font=font_role)
         role_w = role_bbox[2] - role_bbox[0]
         draw.text((x + slot_gap // 2 - role_w // 2, slot_y), role_label, fill=(100, 180, 255), font=font_role)
@@ -298,12 +375,12 @@ async def generate_team_og_image(team: dict) -> bytes:
         else:
             draw.rounded_rectangle([bx, box_y, bx + box_w, box_y + box_h], radius=10, fill=(30, 30, 40))
 
+    chips: list[tuple[str, tuple[int, int, int], tuple[int, int, int]]] = []
     activities = team.get("activities") or []
-    if activities:
-        font_activities = _load_font(48, bold=True)
-        label = ", ".join(ACTIVITY_LABELS.get(a, a) for a in activities)
-        bbox = draw.textbbox((0, 0), label, font=font_activities)
-        draw.text((cx - (bbox[2] - bbox[0]) // 2, CARD_H - 105), label, fill=(255, 255, 255), font=font_activities)
+    for a in activities:
+        chips.append((ACTIVITY_LABELS.get(a, a), (103, 232, 249), (21, 48, 61)))
+    if chips:
+        _draw_chips(img, draw, chips, CARD_H - 110, cx)
 
     draw.text((CARD_W - 200, CARD_H - 48), "riftteam.fr", fill=(70, 70, 90), font=font_brand)
 
