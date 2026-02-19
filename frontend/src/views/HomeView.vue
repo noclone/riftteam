@@ -2,7 +2,7 @@
   <div class="bg-gray-900 text-white flex flex-col items-center justify-center p-8 flex-1">
     <h1 class="text-5xl font-bold mb-4">RiftTeam</h1>
     <p class="text-xl text-gray-400 mb-8 text-center max-w-lg">
-      Ton profil joueur LoL, alimenté par l'API Riot, partageable en un lien.
+      Un bot Discord pour rapidement trouver une équipe, des joueurs, ou un scrim.
     </p>
     <RouterLink
       to="/create"
